@@ -22,9 +22,8 @@ async fn main() -> Result<()> {
     match args.command {
         Commands::Ping => {
             let mut client = status_client::StatusClient::connect("http://[::]:5001").await?;
-            let request = tonic::Request::new(());
             let start = std::time::Instant::now();
-            client.ping(request).await?;
+            client.ping(tonic::Request::new(())).await?;
             println!(
                 "Ping succeded. Latency: {}",
                 (std::time::Instant::now() - start).fancy_duration()
