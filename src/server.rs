@@ -1,14 +1,11 @@
-use capnp::capability::Promise;
+use tonic::{Request, Response, Result};
 
-#[allow(unused)]
-struct Server;
+use crate::grpc::status_server::Status;
+pub struct Server;
 
-impl crate::capnp::buckle::Server for Server {
-    fn ping(
-        &mut self,
-        _: crate::capnp::buckle::PingParams,
-        _: crate::capnp::buckle::PingResults,
-    ) -> Promise<(), capnp::Error> {
-        Promise::ok(())
+#[tonic::async_trait]
+impl Status for Server {
+    async fn ping(&self, _: Request<()>) -> Result<Response<()>, tonic::Status> {
+        return Ok(Response::new(()));
     }
 }

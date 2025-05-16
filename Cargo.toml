@@ -4,8 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-capnp = "*"
 tokio = { version = "*", features = [ "full" ] }
+tonic = "*"
+prost = "*"
 
 [build-dependencies]
-capnpc = "*"
+tonic-build = "*"
