@@ -6,7 +6,7 @@ use tonic::transport::Server;
 pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Server::builder()
         .add_service(StatusServer::new(BuckleServer))
-        .serve(":5001".parse()?)
+        .serve("[::]:5001".parse()?)
         .await?;
     Ok(())
 }
