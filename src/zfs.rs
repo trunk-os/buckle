@@ -3,17 +3,52 @@ use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
-#[derive(Debug, Clone, Default)]
-struct CommandOptions(HashMap<String, String>);
+pub enum Operation {
+    CreateDataset(Dataset),
+    CreateVolume(Volume),
+}
 
-impl Into<Vec<String>> for CommandOptions {
-    fn into(self) -> Vec<String> {
-        let mut args = Vec::new();
-        for (key, value) in self.0 {
-            args.push("-o".to_string());
-            args.push(format!("{}={}", key, value));
+pub struct Dataset {
+    pub name: String,
+    pub quota: Option<String>,
+}
+
+pub struct Volume {
+    pub name: String,
+    pub size: u64,
+}
+
+pub struct Pool {
+    name: String,
+    controller: Controller,
+}
+
+impl Pool {
+    pub fn new(name: String) -> Self {
+        Self {
+            name,
+            controller: Controller::default(),
         }
-        args
+    }
+
+    pub fn run(&self, operation: Operation) -> Result<()> {
+        match operation {
+            Operation::CreateDataset(ds) => {
+                let mut options: Option<CommandOptions> = None;
+
+                if let Some(quota) = ds.quota {
+                    let mut tmp = CommandOptions::default();
+                    tmp.insert("quota".to_string(), quota);
+                    options = Some(tmp);
+                }
+
+                self.controller
+                    .create_dataset(&self.name, &ds.name, options)
+            }
+            Operation::CreateVolume(vl) => self
+                .controller
+                .create_volume(&self.name, &vl.name, vl.size, None),
+        }
     }
 }
 
@@ -39,13 +74,31 @@ static ZFSPATH: LazyLock<String> = LazyLock::new(|| {
     .expect("check UTF-8 validity")
 });
 
-pub struct Pool {
-    name: String,
+#[derive(Debug, Clone, Default)]
+struct CommandOptions(HashMap<String, String>);
+
+impl std::ops::Deref for CommandOptions {
+    type Target = HashMap<String, String>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
-impl Pool {
-    pub fn new(name: String) -> Self {
-        Self { name }
+impl std::ops::DerefMut for CommandOptions {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Into<Vec<String>> for CommandOptions {
+    fn into(self) -> Vec<String> {
+        let mut args = Vec::new();
+        for (key, value) in self.0 {
+            args.push("-o".to_string());
+            args.push(format!("{}={}", key, value));
+        }
+        args
     }
 }
 
@@ -76,8 +129,8 @@ impl Controller {
 
     fn create_dataset(
         &self,
-        pool: String,
-        name: String,
+        pool: &str,
+        name: &str,
         options: Option<CommandOptions>,
     ) -> Result<()> {
         let mut args = vec!["create".to_string(), format!("{}/{}", pool, name)];
@@ -92,8 +145,8 @@ impl Controller {
 
     fn create_volume(
         &self,
-        pool: String,
-        name: String,
+        pool: &str,
+        name: &str,
         size: u64, // 640k aughta be enough for anybody
         options: Option<CommandOptions>,
     ) -> Result<()> {
