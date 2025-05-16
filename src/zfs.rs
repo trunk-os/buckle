@@ -77,6 +77,17 @@ static ZFSPATH: LazyLock<String> = LazyLock::new(|| {
 #[derive(Debug, Clone, Default)]
 struct CommandOptions(HashMap<String, String>);
 
+impl CommandOptions {
+    fn to_options(&self) -> Vec<String> {
+        let mut args = Vec::new();
+        for (key, value) in &self.0 {
+            args.push("-o".to_string());
+            args.push(format!("{}={}", key, value));
+        }
+        args
+    }
+}
+
 impl std::ops::Deref for CommandOptions {
     type Target = HashMap<String, String>;
 
@@ -88,17 +99,6 @@ impl std::ops::Deref for CommandOptions {
 impl std::ops::DerefMut for CommandOptions {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
-    }
-}
-
-impl Into<Vec<String>> for CommandOptions {
-    fn into(self) -> Vec<String> {
-        let mut args = Vec::new();
-        for (key, value) in self.0 {
-            args.push("-o".to_string());
-            args.push(format!("{}={}", key, value));
-        }
-        args
     }
 }
 
@@ -136,7 +136,7 @@ impl Controller {
         let mut args = vec!["create".to_string(), format!("{}/{}", pool, name)];
 
         if let Some(options) = options {
-            args.append(&mut options.into())
+            args.append(&mut options.to_options())
         }
 
         Self::run(&self.zfs_path, args)?;
@@ -158,7 +158,7 @@ impl Controller {
         ];
 
         if let Some(options) = options {
-            args.append(&mut options.into())
+            args.append(&mut options.to_options())
         }
 
         Self::run(&self.zfs_path, args)?;
