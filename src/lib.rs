@@ -18,7 +18,9 @@ fn zfs_warning() {
         println!("You must have ZFS support on your host.");
         println!("Pools are created from empty files and datasets/volumes created within,");
         println!("but there is no guarantee the code is correct. Please be mindful of");
-        println!("your personal filesystems when running this code. It must be run as root.");
+        println!("your personal filesystems when running this code.");
+        println!();
+        println!("It must be run as root, otherwise these tests will fail on permissions.");
         println!();
         println!("--- WARNING: PLEASE READ ---");
         println!();
