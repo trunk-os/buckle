@@ -44,10 +44,14 @@ pub(crate) async fn get_status_client(addr: SocketAddr) -> Result<StatusClient<C
 }
 
 #[cfg(feature = "zfs")]
+use crate::grpc::zfs_client::ZfsClient;
+#[cfg(feature = "zfs")]
 pub(crate) async fn get_zfs_client(addr: SocketAddr) -> Result<ZfsClient<Channel>> {
     Ok(ZfsClient::connect(format!("http://{}", addr)).await?)
 }
 
+// FIXME these commands should accept Option<&str>, setting the name to "default" when None. This
+// would match the default zpool configuration setup for the server.
 #[cfg(feature = "zfs")]
 pub(crate) fn create_zpool(name: &str) -> Result<String> {
     std::fs::create_dir_all("tmp")?;
@@ -78,8 +82,6 @@ pub(crate) fn create_zpool(name: &str) -> Result<String> {
     Ok(path.to_string_lossy().to_string())
 }
 
-#[cfg(feature = "zfs")]
-use crate::grpc::zfs_client::ZfsClient;
 #[cfg(feature = "zfs")]
 pub(crate) fn destroy_zpool(name: &str, file: Option<&str>) -> Result<()> {
     let name = format!("{}-{}", BUCKLE_TEST_ZPOOL_PREFIX, name);
