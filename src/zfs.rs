@@ -278,17 +278,17 @@ mod tests {
             let list = pool.list(None).unwrap();
             assert_eq!(list.len(), 0);
             pool.create_dataset(&crate::zfs::Dataset {
-                name: "test".to_string(),
+                name: "dataset".to_string(),
                 quota: None,
             })
             .unwrap();
             let list = pool.list(None).unwrap();
             assert_eq!(list.len(), 1);
             assert_eq!(list[0].kind, ZFSKind::Dataset);
-            assert_eq!(list[0].name, "test");
+            assert_eq!(list[0].name, "dataset");
             assert_eq!(
                 list[0].full_name,
-                format!("{}-controller-list/test", BUCKLE_TEST_ZPOOL_PREFIX),
+                format!("{}-controller-list/dataset", BUCKLE_TEST_ZPOOL_PREFIX),
             );
             assert_ne!(list[0].size, 0);
             assert_ne!(list[0].used, 0);
@@ -297,30 +297,49 @@ mod tests {
             assert_eq!(
                 list[0].mountpoint,
                 Some(format!(
-                    "/{}-controller-list/test",
+                    "/{}-controller-list/dataset",
                     BUCKLE_TEST_ZPOOL_PREFIX
                 ))
             );
             pool.create_volume(&crate::zfs::Volume {
-                name: "test-volume".to_string(),
+                name: "volume".to_string(),
                 size: 100 * 1024 * 1024,
             })
             .unwrap();
             let list = pool.list(None).unwrap();
             assert_eq!(list.len(), 2);
-            let list = pool.list(Some("test-volume".to_string())).unwrap();
+            let list = pool.list(Some("volume".to_string())).unwrap();
             assert_eq!(list.len(), 1);
             assert_eq!(list[0].kind, ZFSKind::Volume);
-            assert_eq!(list[0].name, "test-volume");
+            assert_eq!(list[0].name, "volume");
             assert_eq!(
                 list[0].full_name,
-                format!("{}-controller-list/test-volume", BUCKLE_TEST_ZPOOL_PREFIX),
+                format!("{}-controller-list/volume", BUCKLE_TEST_ZPOOL_PREFIX),
             );
             assert_ne!(list[0].size, 0);
             assert_ne!(list[0].used, 0);
             assert_ne!(list[0].refer, 0);
             assert_ne!(list[0].avail, 0);
             assert_eq!(list[0].mountpoint, None);
+            let list = pool.list(Some("dataset".to_string())).unwrap();
+            assert_eq!(list.len(), 1);
+            assert_eq!(list[0].kind, ZFSKind::Dataset);
+            assert_eq!(list[0].name, "dataset");
+            assert_eq!(
+                list[0].full_name,
+                format!("{}-controller-list/dataset", BUCKLE_TEST_ZPOOL_PREFIX),
+            );
+            assert_ne!(list[0].size, 0);
+            assert_ne!(list[0].used, 0);
+            assert_ne!(list[0].refer, 0);
+            assert_ne!(list[0].avail, 0);
+            assert_eq!(
+                list[0].mountpoint,
+                Some(format!(
+                    "/{}-controller-list/dataset",
+                    BUCKLE_TEST_ZPOOL_PREFIX
+                ))
+            );
             destroy_zpool("controller-list", Some(&file)).unwrap();
         }
     }
