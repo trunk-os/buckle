@@ -5,6 +5,7 @@ use std::{net::SocketAddr, time::Duration};
 use tokio::net::TcpListener;
 use tonic::transport::Channel;
 
+#[cfg(feature = "zfs")]
 pub(crate) const BUCKLE_TEST_ZPOOL_PREFIX: &str = "buckle-test";
 
 pub(crate) async fn find_listener() -> Result<SocketAddr> {
