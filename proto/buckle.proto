@@ -5,3 +5,44 @@ package buckle;
 service Status {
   rpc Ping (google.protobuf.Empty) returns (google.protobuf.Empty);
 }
+
+message ZFSList {
+  repeated ZFSEntry entries = 1;
+}
+
+message ZFSListFilter {
+  optional string filter = 1;
+}
+
+enum ZFSType {
+  Dataset = 0;
+  Volume  = 1;
+}
+
+message ZFSEntry {
+           ZFSType kind      = 1;
+           string  name      = 2;
+           string  full_name = 3;
+           uint64  size      = 4;
+           uint64  used      = 5;
+           uint64  avail     = 6;
+           uint64  refer     = 7;
+  optional string mountpoint = 8;
+}
+
+message ZFSDataset {
+           string name  = 1;
+  optional string quota = 2;
+}
+
+message ZFSVolume {
+  string name = 1;
+  uint64 size = 2;
+}
+
+service ZFS {
+  rpc List (ZFSListFilter)      returns (ZFSList);
+  rpc CreateDataset(ZFSDataset) returns (google.protobuf.Empty);
+  rpc CreateVolume(ZFSVolume)   returns (google.protobuf.Empty);
+  rpc Destroy(ZFSListFilter)    returns (google.protobuf.Empty);
+}
