@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use crate::grpc::{ZfsEntry, ZfsList, ZfsType};
+use crate::grpc::{ZfsDataset, ZfsEntry, ZfsList, ZfsType, ZfsVolume};
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 
@@ -45,6 +45,24 @@ pub struct ZFSStat {
     pub refer: u64,
     pub mountpoint: Option<String>,
     // FIXME collect options (like quotas)
+}
+
+impl From<ZfsDataset> for Dataset {
+    fn from(value: ZfsDataset) -> Self {
+        Self {
+            name: value.name,
+            quota: value.quota,
+        }
+    }
+}
+
+impl From<ZfsVolume> for Volume {
+    fn from(value: ZfsVolume) -> Self {
+        Self {
+            name: value.name,
+            size: value.size,
+        }
+    }
 }
 
 impl Into<ZfsList> for Vec<ZFSStat> {

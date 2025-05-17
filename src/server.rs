@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use crate::grpc::{
     status_server::{Status, StatusServer},
     zfs_server::{Zfs, ZfsServer},
-    ZfsDataset, ZfsList, ZfsListFilter, ZfsVolume,
+    ZfsDataset, ZfsList, ZfsListFilter, ZfsName, ZfsVolume,
 };
 use tonic::{transport::Server as TransportServer, Request, Response, Result};
 
@@ -54,19 +54,35 @@ impl Zfs for Server {
 
     async fn create_dataset(
         &self,
-        _dataset: Request<ZfsDataset>,
+        dataset: Request<ZfsDataset>,
     ) -> Result<Response<()>, tonic::Status> {
+        self.config
+            .zfs
+            .controller()
+            .create_dataset(&dataset.into_inner().into())
+            .map_err(|e| tonic::Status::new(tonic::Code::Internal, e.to_string()))?;
+
         return Ok(Response::new(()));
     }
 
     async fn create_volume(
         &self,
-        _dataset: Request<ZfsVolume>,
+        volume: Request<ZfsVolume>,
     ) -> Result<Response<()>, tonic::Status> {
+        self.config
+            .zfs
+            .controller()
+            .create_volume(&volume.into_inner().into())
+            .map_err(|e| tonic::Status::new(tonic::Code::Internal, e.to_string()))?;
         return Ok(Response::new(()));
     }
 
-    async fn destroy(&self, _name: Request<ZfsListFilter>) -> Result<Response<()>, tonic::Status> {
+    async fn destroy(&self, name: Request<ZfsName>) -> Result<Response<()>, tonic::Status> {
+        self.config
+            .zfs
+            .controller()
+            .destroy(name.get_ref().name.clone())
+            .map_err(|e| tonic::Status::new(tonic::Code::Internal, e.to_string()))?;
         return Ok(Response::new(()));
     }
 }

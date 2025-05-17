@@ -7,6 +7,7 @@ use tokio::net::TcpListener;
 use tonic::transport::Channel;
 
 pub(crate) const BUCKLE_TEST_ZPOOL_PREFIX: &str = "buckle-test";
+
 pub(crate) const DEFAULT_CONFIG: LazyLock<crate::config::Config> =
     LazyLock::new(|| crate::config::Config {
         zfs: crate::config::ZFSConfig {
