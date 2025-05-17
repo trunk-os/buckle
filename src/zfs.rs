@@ -6,18 +6,22 @@ use std::sync::LazyLock;
 pub enum Operation {
     CreateDataset(Dataset),
     CreateVolume(Volume),
+    Destroy(String),
 }
 
+#[derive(Debug, Clone)]
 pub struct Dataset {
     pub name: String,
     pub quota: Option<String>,
 }
 
+#[derive(Debug, Clone)]
 pub struct Volume {
     pub name: String,
     pub size: u64,
 }
 
+#[derive(Debug, Clone)]
 pub struct Pool {
     name: String,
     controller: Controller,
@@ -31,24 +35,29 @@ impl Pool {
         }
     }
 
-    pub fn run(&self, operation: Operation) -> Result<()> {
-        match operation {
-            Operation::CreateDataset(ds) => {
-                let mut options: Option<CommandOptions> = None;
+    pub fn create_dataset(&self, info: &Dataset) -> Result<()> {
+        let mut options: Option<CommandOptions> = None;
 
-                if let Some(quota) = ds.quota {
-                    let mut tmp = CommandOptions::default();
-                    tmp.insert("quota".to_string(), quota);
-                    options = Some(tmp);
-                }
-
-                self.controller
-                    .create_dataset(&self.name, &ds.name, options)
-            }
-            Operation::CreateVolume(vl) => self
-                .controller
-                .create_volume(&self.name, &vl.name, vl.size, None),
+        if let Some(quota) = &info.quota {
+            let mut tmp = CommandOptions::default();
+            tmp.insert("quota".to_string(), quota.clone());
+            options = Some(tmp);
         }
+
+        self.controller
+            .create_dataset(&self.name, &info.name, options)?;
+        Ok(())
+    }
+
+    pub fn create_volume(&self, info: &Volume) -> Result<()> {
+        self.controller
+            .create_volume(&self.name, &info.name, info.size, None)?;
+        Ok(())
+    }
+
+    pub fn destroy(&self, name: String) -> Result<()> {
+        self.controller.destroy(&self.name, &name)?;
+        Ok(())
     }
 }
 
@@ -125,6 +134,14 @@ impl Controller {
                 .output()?
                 .stdout,
         )?)
+    }
+
+    fn destroy(&self, pool: &str, name: &str) -> Result<()> {
+        Self::run(
+            &self.zfs_path,
+            vec!["destroy".to_string(), format!("{}/{}", pool, name)],
+        )?;
+        Ok(())
     }
 
     fn create_dataset(
