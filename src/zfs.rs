@@ -43,6 +43,7 @@ pub struct ZFSStat {
     pub avail: u64,
     pub refer: u64,
     pub mountpoint: Option<String>,
+    // FIXME collect options (like quotas)
 }
 
 impl Pool {
@@ -271,7 +272,7 @@ mod tests {
             zfs::ZFSKind,
         };
         #[test]
-        fn test_controller_list() {
+        fn test_controller_zfs_lifecycle() {
             let _ = destroy_zpool("controller-list", None);
             let file = create_zpool("controller-list").unwrap();
             let pool = Pool::new(&format!("{}-controller-list", BUCKLE_TEST_ZPOOL_PREFIX));
@@ -340,9 +341,17 @@ mod tests {
                     BUCKLE_TEST_ZPOOL_PREFIX
                 ))
             );
+            pool.destroy("dataset".to_string()).unwrap();
+            let list = pool.list(Some("dataset".to_string())).unwrap();
+            assert_eq!(list.len(), 0);
+            let list = pool.list(None).unwrap();
+            assert_eq!(list.len(), 1);
+            pool.destroy("volume".to_string()).unwrap();
+            let list = pool.list(Some("volume".to_string())).unwrap();
+            assert_eq!(list.len(), 0);
+            let list = pool.list(None).unwrap();
+            assert_eq!(list.len(), 0);
             destroy_zpool("controller-list", Some(&file)).unwrap();
         }
     }
-
-    mod pool {}
 }
