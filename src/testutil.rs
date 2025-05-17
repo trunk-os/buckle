@@ -10,7 +10,7 @@ pub(crate) const BUCKLE_TEST_ZPOOL_PREFIX: &str = "buckle-test";
 
 pub(crate) async fn find_listener() -> Result<SocketAddr> {
     for x in 3000..32767 {
-        let addr: SocketAddr = format!("0.0.0.0:{}", x).parse()?;
+        let addr: SocketAddr = format!("127.0.0.1:{}", x).parse()?;
         match TcpListener::bind(addr).await {
             Ok(_) => return Ok(addr),
             Err(_) => {}
