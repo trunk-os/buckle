@@ -96,18 +96,20 @@ pub(crate) fn list_zpools() -> Result<Vec<String>> {
     Ok(ret)
 }
 
-#[cfg(feature = "zfs")]
 mod tests {
-    use super::{create_zpool, destroy_zpool, list_zpools, BUCKLE_TEST_ZPOOL_PREFIX};
+    #[cfg(feature = "zfs")]
+    mod zfs {
+        use super::super::{create_zpool, destroy_zpool, list_zpools, BUCKLE_TEST_ZPOOL_PREFIX};
 
-    #[test]
-    fn create_remove_zfs() {
-        let file = create_zpool("testutil-test").unwrap();
-        assert!(file.len() > 0);
-        assert!(list_zpools()
-            .unwrap()
-            .contains(&format!("{}-testutil-test", BUCKLE_TEST_ZPOOL_PREFIX)));
-        destroy_zpool("testutil-test", &file).unwrap();
-        assert!(!std::fs::exists(file).unwrap())
+        #[test]
+        fn create_remove_zfs() {
+            let file = create_zpool("testutil-test").unwrap();
+            assert!(file.len() > 0);
+            assert!(list_zpools()
+                .unwrap()
+                .contains(&format!("{}-testutil-test", BUCKLE_TEST_ZPOOL_PREFIX)));
+            destroy_zpool("testutil-test", &file).unwrap();
+            assert!(!std::fs::exists(file).unwrap())
+        }
     }
 }
