@@ -2,26 +2,26 @@
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Operation {
     CreateDataset(Dataset),
     CreateVolume(Volume),
     Destroy(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ZFSKind {
     Dataset,
     Volume,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Dataset {
     pub name: String,
     pub quota: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Volume {
     pub name: String,
     pub size: u64,
@@ -37,6 +37,7 @@ pub struct Pool {
 pub struct ZFSStat {
     pub kind: ZFSKind,
     pub name: String,
+    pub full_name: String,
     pub size: u64,
     pub used: u64,
     pub avail: u64,
@@ -90,7 +91,6 @@ impl Pool {
             let mut used = String::new();
             let mut avail = String::new();
             let mut refer = String::new();
-            let mut mountpoint = String::new();
 
             let mut tmp = String::new();
             let mut stage = 0;
@@ -103,7 +103,6 @@ impl Pool {
                         1 => used = tmp,
                         2 => avail = tmp,
                         3 => refer = tmp,
-                        4 => mountpoint = tmp,
                         _ => break 'line,
                     };
                     stage += 1;
@@ -111,8 +110,10 @@ impl Pool {
                 }
             }
 
+            let mountpoint = tmp;
+
             if let Some(filter) = &filter {
-                if name.starts_with(&format!("{}/{}", self.name, filter)) {
+                if !name.starts_with(&format!("{}/{}", self.name, filter)) {
                     continue;
                 }
             }
@@ -131,11 +132,12 @@ impl Pool {
                 // FIXME relying on datasets being mounted is a thing we're doing right now, it'll
                 //       probably have to change eventually, but zfs handles all the mounting for
                 //       us at create and destroy time.
-                kind: if mountpoint.to_string() == "-" {
+                kind: if mountpoint == "-" {
                     ZFSKind::Volume
                 } else {
                     ZFSKind::Dataset
                 },
+                full_name: name.clone(),
                 name: name
                     .strip_prefix(&format!("{}/", self.name))
                     .unwrap_or_else(|| &name)
@@ -143,7 +145,11 @@ impl Pool {
                 used: used.parse()?,
                 avail: avail.parse()?,
                 // this is just easier to use in places
-                size: used.parse::<u64>()? + avail.parse::<u64>()?,
+                size: if mountpoint == "-" {
+                    used.parse()?
+                } else {
+                    used.parse::<u64>()? + avail.parse::<u64>()?
+                },
                 refer: refer.parse()?,
                 mountpoint: if mountpoint == "-" {
                     None
@@ -260,7 +266,10 @@ impl Controller {
 mod tests {
     mod controller {
         use super::super::Pool;
-        use crate::testutil::{create_zpool, destroy_zpool, BUCKLE_TEST_ZPOOL_PREFIX};
+        use crate::{
+            testutil::{create_zpool, destroy_zpool, BUCKLE_TEST_ZPOOL_PREFIX},
+            zfs::ZFSKind,
+        };
         #[test]
         fn test_controller_list() {
             let _ = destroy_zpool("controller-list", None);
@@ -275,6 +284,43 @@ mod tests {
             .unwrap();
             let list = pool.list(None).unwrap();
             assert_eq!(list.len(), 1);
+            assert_eq!(list[0].kind, ZFSKind::Dataset);
+            assert_eq!(list[0].name, "test");
+            assert_eq!(
+                list[0].full_name,
+                format!("{}-controller-list/test", BUCKLE_TEST_ZPOOL_PREFIX),
+            );
+            assert_ne!(list[0].size, 0);
+            assert_ne!(list[0].used, 0);
+            assert_ne!(list[0].refer, 0);
+            assert_ne!(list[0].avail, 0);
+            assert_eq!(
+                list[0].mountpoint,
+                Some(format!(
+                    "/{}-controller-list/test",
+                    BUCKLE_TEST_ZPOOL_PREFIX
+                ))
+            );
+            pool.create_volume(&crate::zfs::Volume {
+                name: "test-volume".to_string(),
+                size: 100 * 1024 * 1024,
+            })
+            .unwrap();
+            let list = pool.list(None).unwrap();
+            assert_eq!(list.len(), 2);
+            let list = pool.list(Some("test-volume".to_string())).unwrap();
+            assert_eq!(list.len(), 1);
+            assert_eq!(list[0].kind, ZFSKind::Volume);
+            assert_eq!(list[0].name, "test-volume");
+            assert_eq!(
+                list[0].full_name,
+                format!("{}-controller-list/test-volume", BUCKLE_TEST_ZPOOL_PREFIX),
+            );
+            assert_ne!(list[0].size, 0);
+            assert_ne!(list[0].used, 0);
+            assert_ne!(list[0].refer, 0);
+            assert_ne!(list[0].avail, 0);
+            assert_eq!(list[0].mountpoint, None);
             destroy_zpool("controller-list", Some(&file)).unwrap();
         }
     }
