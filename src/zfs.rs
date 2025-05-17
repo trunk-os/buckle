@@ -3,10 +3,17 @@ use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
+#[derive(Debug, Clone)]
 pub enum Operation {
     CreateDataset(Dataset),
     CreateVolume(Volume),
     Destroy(String),
+}
+
+#[derive(Debug, Clone)]
+pub enum ZFSKind {
+    Dataset,
+    Volume,
 }
 
 #[derive(Debug, Clone)]
@@ -25,6 +32,17 @@ pub struct Volume {
 pub struct Pool {
     name: String,
     controller: Controller,
+}
+
+#[derive(Debug, Clone)]
+pub struct ZFSStat {
+    pub kind: ZFSKind,
+    pub name: String,
+    pub size: u64,
+    pub used: u64,
+    pub avail: u64,
+    pub refer: u64,
+    pub mountpoint: Option<String>,
 }
 
 impl Pool {
@@ -58,6 +76,70 @@ impl Pool {
     pub fn destroy(&self, name: String) -> Result<()> {
         self.controller.destroy(&self.name, &name)?;
         Ok(())
+    }
+
+    pub fn list(&self, filter: Option<String>) -> Result<Vec<ZFSStat>> {
+        let mut ret = Vec::new();
+        let list_output = self.controller.list()?;
+        let lines = list_output.split('\n');
+        for line in lines.skip(1) {
+            let mut name = String::new();
+            let mut used = String::new();
+            let mut avail = String::new();
+            let mut refer = String::new();
+            let mut mountpoint = String::new();
+
+            let mut tmp = String::new();
+            let mut stage = 0;
+            'line: for ch in line.chars() {
+                if ch != ' ' {
+                    tmp.push(ch)
+                } else if tmp != "" {
+                    match stage {
+                        0 => name = tmp,
+                        1 => used = tmp,
+                        2 => avail = tmp,
+                        3 => refer = tmp,
+                        4 => mountpoint = tmp,
+                        _ => break 'line,
+                    };
+                    stage += 1;
+                    tmp = String::new();
+                }
+            }
+
+            if let Some(filter) = &filter {
+                if name != format!("{}/{}", self.name, filter) {
+                    continue;
+                }
+            }
+
+            if !name.starts_with(&self.name) {
+                continue;
+            }
+
+            ret.push(ZFSStat {
+                kind: if mountpoint == "-" {
+                    ZFSKind::Volume
+                } else {
+                    ZFSKind::Dataset
+                },
+                name: name
+                    .strip_prefix(&format!("{}/", self.name))
+                    .unwrap_or_else(|| &name)
+                    .to_owned(), // strip the pool
+                used: used.parse()?,
+                avail: avail.parse()?,
+                size: used.parse::<u64>()? + avail.parse::<u64>()?,
+                refer: refer.parse()?,
+                mountpoint: if mountpoint == "-" {
+                    None
+                } else {
+                    Some(mountpoint)
+                },
+            })
+        }
+        Ok(ret)
     }
 }
 
@@ -134,6 +216,10 @@ impl Controller {
                 .output()?
                 .stdout,
         )?)
+    }
+
+    fn list(&self) -> Result<String> {
+        Self::run(&self.zfs_path, vec!["list".to_string(), "-p".to_string()])
     }
 
     fn destroy(&self, pool: &str, name: &str) -> Result<()> {
