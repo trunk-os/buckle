@@ -1,6 +1,10 @@
 use std::net::SocketAddr;
 
-use crate::grpc::status_server::{Status, StatusServer};
+use crate::grpc::{
+    status_server::{Status, StatusServer},
+    zfs_server::{Zfs, ZfsServer},
+    ZfsDataset, ZfsList, ZfsListFilter, ZfsVolume,
+};
 use tonic::{transport::Server as TransportServer, Request, Response, Result};
 
 // FIXME needs a way to shut down
@@ -14,6 +18,7 @@ impl Server {
     ) -> impl std::future::Future<Output = Result<(), tonic::transport::Error>> {
         TransportServer::builder()
             .add_service(StatusServer::new(self.clone()))
+            .add_service(ZfsServer::new(self.clone()))
             .serve(addr)
     }
 }
@@ -21,6 +26,33 @@ impl Server {
 #[tonic::async_trait]
 impl Status for Server {
     async fn ping(&self, _: Request<()>) -> Result<Response<()>, tonic::Status> {
+        return Ok(Response::new(()));
+    }
+}
+
+#[tonic::async_trait]
+impl Zfs for Server {
+    async fn list(
+        &self,
+        _filter: Request<ZfsListFilter>,
+    ) -> Result<Response<ZfsList>, tonic::Status> {
+        return Ok(Response::new(ZfsList::default()));
+    }
+    async fn create_dataset(
+        &self,
+        _dataset: Request<ZfsDataset>,
+    ) -> Result<Response<()>, tonic::Status> {
+        return Ok(Response::new(()));
+    }
+
+    async fn create_volume(
+        &self,
+        _dataset: Request<ZfsVolume>,
+    ) -> Result<Response<()>, tonic::Status> {
+        return Ok(Response::new(()));
+    }
+
+    async fn destroy(&self, _name: Request<ZfsListFilter>) -> Result<Response<()>, tonic::Status> {
         return Ok(Response::new(()));
     }
 }
