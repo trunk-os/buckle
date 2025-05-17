@@ -107,8 +107,10 @@ mod tests {
     #[cfg(feature = "zfs")]
     mod zfs {
         use crate::{
-            grpc::ZfsListFilter,
-            testutil::{create_zpool, destroy_zpool, get_zfs_client, make_server},
+            grpc::{ZfsDataset, ZfsListFilter, ZfsName, ZfsType, ZfsVolume},
+            testutil::{
+                create_zpool, destroy_zpool, get_zfs_client, make_server, BUCKLE_TEST_ZPOOL_PREFIX,
+            },
         };
 
         #[tokio::test]
@@ -125,6 +127,161 @@ mod tests {
                 .unwrap();
 
             assert_eq!(res.into_inner().entries.len(), 0);
+
+            client
+                .create_dataset(tonic::Request::new(
+                    ZfsDataset {
+                        name: "dataset".to_string(),
+                        ..Default::default()
+                    }
+                    .into(),
+                ))
+                .await
+                .unwrap();
+
+            let res = client
+                .list(tonic::Request::new(ZfsListFilter::default()))
+                .await
+                .unwrap()
+                .into_inner()
+                .entries;
+
+            assert_eq!(res.len(), 1);
+
+            let item = &res[0];
+
+            assert_eq!(item.kind(), ZfsType::Dataset);
+            assert_eq!(item.name, "dataset");
+            assert_eq!(
+                item.full_name,
+                format!("{}-default/dataset", BUCKLE_TEST_ZPOOL_PREFIX),
+            );
+            assert_ne!(item.size, 0);
+            assert_ne!(item.used, 0);
+            assert_ne!(item.refer, 0);
+            assert_ne!(item.avail, 0);
+            assert_eq!(
+                item.mountpoint,
+                Some(format!("/{}-default/dataset", BUCKLE_TEST_ZPOOL_PREFIX))
+            );
+
+            client
+                .create_volume(tonic::Request::new(
+                    ZfsVolume {
+                        name: "volume".to_string(),
+                        size: 100 * 1024 * 1024,
+                    }
+                    .into(),
+                ))
+                .await
+                .unwrap();
+
+            let res = client
+                .list(tonic::Request::new(ZfsListFilter::default()))
+                .await
+                .unwrap()
+                .into_inner()
+                .entries;
+
+            assert_eq!(res.len(), 2);
+
+            let res = client
+                .list(tonic::Request::new(ZfsListFilter {
+                    filter: Some("dataset".to_string()),
+                }))
+                .await
+                .unwrap()
+                .into_inner()
+                .entries;
+
+            assert_eq!(res.len(), 1);
+
+            let item = &res[0];
+
+            assert_eq!(item.kind(), ZfsType::Dataset);
+            assert_eq!(item.name, "dataset");
+            assert_eq!(
+                item.full_name,
+                format!("{}-default/dataset", BUCKLE_TEST_ZPOOL_PREFIX),
+            );
+            assert_ne!(item.size, 0);
+            assert_ne!(item.used, 0);
+            assert_ne!(item.refer, 0);
+            assert_ne!(item.avail, 0);
+            assert_eq!(
+                item.mountpoint,
+                Some(format!("/{}-default/dataset", BUCKLE_TEST_ZPOOL_PREFIX))
+            );
+
+            let res = client
+                .list(tonic::Request::new(ZfsListFilter {
+                    filter: Some("volume".to_string()),
+                }))
+                .await
+                .unwrap()
+                .into_inner()
+                .entries;
+
+            assert_eq!(res.len(), 1);
+
+            let item = &res[0];
+
+            assert_eq!(item.kind(), ZfsType::Volume);
+            assert_eq!(item.name, "volume");
+            assert_eq!(
+                item.full_name,
+                format!("{}-default/volume", BUCKLE_TEST_ZPOOL_PREFIX),
+            );
+            assert_ne!(item.size, 0);
+            assert_ne!(item.used, 0);
+            assert_ne!(item.refer, 0);
+            assert_ne!(item.avail, 0);
+            assert_eq!(item.mountpoint, None);
+
+            client
+                .destroy(tonic::Request::new(ZfsName {
+                    name: "volume".to_string(),
+                }))
+                .await
+                .unwrap();
+
+            let res = client
+                .list(tonic::Request::new(ZfsListFilter {
+                    filter: Some("volume".to_string()),
+                }))
+                .await
+                .unwrap()
+                .into_inner()
+                .entries;
+
+            assert_eq!(res.len(), 0);
+
+            client
+                .destroy(tonic::Request::new(ZfsName {
+                    name: "dataset".to_string(),
+                }))
+                .await
+                .unwrap();
+
+            let res = client
+                .list(tonic::Request::new(ZfsListFilter {
+                    filter: Some("dataset".to_string()),
+                }))
+                .await
+                .unwrap()
+                .into_inner()
+                .entries;
+
+            assert_eq!(res.len(), 0);
+
+            let res = client
+                .list(tonic::Request::new(ZfsListFilter::default()))
+                .await
+                .unwrap()
+                .into_inner()
+                .entries;
+
+            assert_eq!(res.len(), 0);
 
             destroy_zpool("default", Some(&file)).unwrap();
         }
