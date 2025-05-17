@@ -35,7 +35,7 @@ impl Server {
 
 #[tonic::async_trait]
 impl Status for Server {
-    async fn ping(&self, _: Request<()>) -> Result<Response<()>, tonic::Status> {
+    async fn ping(&self, _: Request<()>) -> Result<Response<()>> {
         return Ok(Response::new(()));
     }
 }
@@ -52,10 +52,7 @@ impl Zfs for Server {
         return Ok(Response::new(list.into()));
     }
 
-    async fn create_dataset(
-        &self,
-        dataset: Request<ZfsDataset>,
-    ) -> Result<Response<()>, tonic::Status> {
+    async fn create_dataset(&self, dataset: Request<ZfsDataset>) -> Result<Response<()>> {
         self.config
             .zfs
             .controller()
@@ -65,10 +62,7 @@ impl Zfs for Server {
         return Ok(Response::new(()));
     }
 
-    async fn create_volume(
-        &self,
-        volume: Request<ZfsVolume>,
-    ) -> Result<Response<()>, tonic::Status> {
+    async fn create_volume(&self, volume: Request<ZfsVolume>) -> Result<Response<()>> {
         self.config
             .zfs
             .controller()
@@ -77,7 +71,7 @@ impl Zfs for Server {
         return Ok(Response::new(()));
     }
 
-    async fn destroy(&self, name: Request<ZfsName>) -> Result<Response<()>, tonic::Status> {
+    async fn destroy(&self, name: Request<ZfsName>) -> Result<Response<()>> {
         self.config
             .zfs
             .controller()
