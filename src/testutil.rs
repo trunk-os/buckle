@@ -5,7 +5,7 @@ use std::{net::SocketAddr, time::Duration};
 use tokio::net::TcpListener;
 use tonic::transport::Channel;
 
-const BUCKLE_TEST_ZPOOL_PREFIX: &str = "buckle-test";
+pub(crate) const BUCKLE_TEST_ZPOOL_PREFIX: &str = "buckle-test";
 
 pub(crate) async fn find_listener() -> Result<SocketAddr> {
     for x in 3000..32767 {
@@ -41,59 +41,78 @@ pub(crate) fn create_zpool(name: &str) -> Result<String> {
 
     let (_, path) = tempfile::NamedTempFile::new_in("tmp")?.keep()?;
 
-    std::process::Command::new("truncate")
+    if !std::process::Command::new("truncate")
         .args(vec!["-s", "5G", path.to_str().unwrap()])
-        .status()?;
-
-    std::process::Command::new("zpool")
-        .args(vec![
-            "create",
-            &format!("{}-{}", BUCKLE_TEST_ZPOOL_PREFIX, name),
-            path.to_str().unwrap(),
-        ])
         .stdout(std::io::stdout())
-        .status()?;
+        .stderr(std::io::stderr())
+        .status()?
+        .success()
+    {
+        return Err(anyhow!("Could not grow file for zpool"));
+    }
+
+    let name = format!("{}-{}", BUCKLE_TEST_ZPOOL_PREFIX, name);
+    if !std::process::Command::new("zpool")
+        .args(vec!["create", &name, path.to_str().unwrap()])
+        .stdout(std::io::stdout())
+        .stderr(std::io::stderr())
+        .status()?
+        .success()
+    {
+        return Err(anyhow!("could not create zpool '{}'", name));
+    }
 
     Ok(path.to_string_lossy().to_string())
 }
 
 #[cfg(feature = "zfs")]
-pub(crate) fn destroy_zpool(name: &str, file: &str) -> Result<()> {
-    std::process::Command::new("zpool")
-        .args(vec![
-            "destroy",
-            "-f",
-            &format!("{}-{}", BUCKLE_TEST_ZPOOL_PREFIX, name),
-        ])
-        .status()?;
-    Ok(std::fs::remove_file(&file)?)
+pub(crate) fn destroy_zpool(name: &str, file: Option<&str>) -> Result<()> {
+    let name = format!("{}-{}", BUCKLE_TEST_ZPOOL_PREFIX, name);
+    if !std::process::Command::new("zpool")
+        .args(vec!["destroy", "-f", &name])
+        .stdout(std::io::stdout())
+        .stderr(std::io::stderr())
+        .status()?
+        .success()
+    {
+        return Err(anyhow!("could not destroy zpool: {}", name));
+    }
+
+    if let Some(file) = file {
+        return Ok(std::fs::remove_file(&file)?);
+    }
+
+    Ok(())
 }
 
 #[cfg(feature = "zfs")]
 pub(crate) fn list_zpools() -> Result<Vec<String>> {
-    let out = String::from_utf8(
-        std::process::Command::new("zpool")
-            .args(vec!["list"])
-            .output()?
-            .stdout,
-    )?;
-    let lines = out.split('\n');
+    let out = std::process::Command::new("zpool")
+        .args(vec!["list"])
+        .stderr(std::io::stderr())
+        .output()?;
+    if out.status.success() {
+        let out = String::from_utf8(out.stdout)?;
+        let lines = out.split('\n');
 
-    let mut ret = Vec::new();
+        let mut ret = Vec::new();
 
-    for line in lines.skip(1) {
-        let mut name = String::new();
-        for ch in line.chars() {
-            if ch != ' ' {
-                name.push(ch)
-            } else {
-                break;
+        for line in lines.skip(1) {
+            let mut name = String::new();
+            for ch in line.chars() {
+                if ch != ' ' {
+                    name.push(ch)
+                } else {
+                    break;
+                }
             }
+            ret.push(name);
         }
-        ret.push(name);
+
+        return Ok(ret);
     }
 
-    Ok(ret)
+    Err(anyhow!("error listing zpools"))
 }
 
 mod tests {
@@ -102,13 +121,14 @@ mod tests {
         use super::super::{create_zpool, destroy_zpool, list_zpools, BUCKLE_TEST_ZPOOL_PREFIX};
 
         #[test]
-        fn create_remove_zfs() {
+        fn create_remove_zpool() {
+            let _ = destroy_zpool("testutil-test", None);
             let file = create_zpool("testutil-test").unwrap();
             assert!(file.len() > 0);
             assert!(list_zpools()
                 .unwrap()
                 .contains(&format!("{}-testutil-test", BUCKLE_TEST_ZPOOL_PREFIX)));
-            destroy_zpool("testutil-test", &file).unwrap();
+            destroy_zpool("testutil-test", Some(&file)).unwrap();
             assert!(!std::fs::exists(file).unwrap())
         }
     }

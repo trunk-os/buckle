@@ -1,7 +1,6 @@
 #![allow(dead_code)]
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use std::collections::HashMap;
-use std::sync::LazyLock;
 
 #[derive(Debug, Clone)]
 pub enum Operation {
@@ -46,9 +45,9 @@ pub struct ZFSStat {
 }
 
 impl Pool {
-    pub fn new(name: String) -> Self {
+    pub fn new(name: &str) -> Self {
         Self {
-            name,
+            name: name.to_string(),
             controller: Controller::default(),
         }
     }
@@ -83,6 +82,10 @@ impl Pool {
         let list_output = self.controller.list()?;
         let lines = list_output.split('\n');
         for line in lines.skip(1) {
+            if line.is_empty() {
+                continue;
+            }
+
             let mut name = String::new();
             let mut used = String::new();
             let mut avail = String::new();
@@ -109,7 +112,7 @@ impl Pool {
             }
 
             if let Some(filter) = &filter {
-                if name != format!("{}/{}", self.name, filter) {
+                if name.starts_with(&format!("{}/{}", self.name, filter)) {
                     continue;
                 }
             }
@@ -118,12 +121,17 @@ impl Pool {
                 continue;
             }
 
+            if name == self.name {
+                // skip root-level datasets since they correspond to pools
+                continue;
+            }
+
             ret.push(ZFSStat {
                 // volumes don't have a mountpath, '-' is indicated
                 // FIXME relying on datasets being mounted is a thing we're doing right now, it'll
                 //       probably have to change eventually, but zfs handles all the mounting for
                 //       us at create and destroy time.
-                kind: if mountpoint == "-" {
+                kind: if mountpoint.to_string() == "-" {
                     ZFSKind::Volume
                 } else {
                     ZFSKind::Dataset
@@ -140,35 +148,13 @@ impl Pool {
                 mountpoint: if mountpoint == "-" {
                     None
                 } else {
-                    Some(mountpoint)
+                    Some(mountpoint.to_string())
                 },
             })
         }
         Ok(ret)
     }
 }
-
-static ZPOOLPATH: LazyLock<String> = LazyLock::new(|| {
-    String::from_utf8(
-        std::process::Command::new("which")
-            .args(vec!["zpool"])
-            .output()
-            .expect("finding location of zfs command")
-            .stdout,
-    )
-    .expect("check UTF-8 validity")
-});
-
-static ZFSPATH: LazyLock<String> = LazyLock::new(|| {
-    String::from_utf8(
-        std::process::Command::new("which")
-            .args(vec!["zfs"])
-            .output()
-            .expect("finding location of zfs command")
-            .stdout,
-    )
-    .expect("check UTF-8 validity")
-});
 
 #[derive(Debug, Clone, Default)]
 struct CommandOptions(HashMap<String, String>);
@@ -198,38 +184,33 @@ impl std::ops::DerefMut for CommandOptions {
     }
 }
 
-#[derive(Debug, Clone)]
-struct Controller {
-    zfs_path: String,
-    zpool_path: String,
-}
-
-impl Default for Controller {
-    fn default() -> Self {
-        Self {
-            zfs_path: ZFSPATH.clone(),
-            zpool_path: ZPOOLPATH.clone(),
-        }
-    }
-}
+#[derive(Debug, Clone, Default)]
+struct Controller;
 
 impl Controller {
     fn run(command: &str, args: Vec<String>) -> Result<String> {
-        Ok(String::from_utf8(
-            std::process::Command::new(command)
-                .args(args)
-                .output()?
-                .stdout,
-        )?)
+        let out = std::process::Command::new(command)
+            .args(args.clone())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .output()?;
+        if out.status.success() {
+            Ok(String::from_utf8(out.stdout)?)
+        } else {
+            Err(anyhow!(
+                "Error: {}",
+                String::from_utf8(out.stderr)?.as_str()
+            ))
+        }
     }
 
     fn list(&self) -> Result<String> {
-        Self::run(&self.zfs_path, vec!["list".to_string(), "-p".to_string()])
+        Self::run("zfs", vec!["list".to_string(), "-p".to_string()])
     }
 
     fn destroy(&self, pool: &str, name: &str) -> Result<()> {
         Self::run(
-            &self.zfs_path,
+            "zfs",
             vec!["destroy".to_string(), format!("{}/{}", pool, name)],
         )?;
         Ok(())
@@ -247,7 +228,7 @@ impl Controller {
             args.append(&mut options.to_options())
         }
 
-        Self::run(&self.zfs_path, args)?;
+        Self::run("zfs", args)?;
         Ok(())
     }
 
@@ -269,7 +250,7 @@ impl Controller {
             args.append(&mut options.to_options())
         }
 
-        Self::run(&self.zfs_path, args)?;
+        Self::run("zfs", args)?;
         Ok(())
     }
 }
@@ -278,8 +259,24 @@ impl Controller {
 #[cfg(feature = "zfs")]
 mod tests {
     mod controller {
+        use super::super::Pool;
+        use crate::testutil::{create_zpool, destroy_zpool, BUCKLE_TEST_ZPOOL_PREFIX};
         #[test]
-        fn test_controller_list() {}
+        fn test_controller_list() {
+            let _ = destroy_zpool("controller-list", None);
+            let file = create_zpool("controller-list").unwrap();
+            let pool = Pool::new(&format!("{}-controller-list", BUCKLE_TEST_ZPOOL_PREFIX));
+            let list = pool.list(None).unwrap();
+            assert_eq!(list.len(), 0);
+            pool.create_dataset(&crate::zfs::Dataset {
+                name: "test".to_string(),
+                quota: None,
+            })
+            .unwrap();
+            let list = pool.list(None).unwrap();
+            assert_eq!(list.len(), 1);
+            destroy_zpool("controller-list", Some(&file)).unwrap();
+        }
     }
 
     mod pool {}
