@@ -119,6 +119,10 @@ impl Pool {
             }
 
             ret.push(ZFSStat {
+                // volumes don't have a mountpath, '-' is indicated
+                // FIXME relying on datasets being mounted is a thing we're doing right now, it'll
+                //       probably have to change eventually, but zfs handles all the mounting for
+                //       us at create and destroy time.
                 kind: if mountpoint == "-" {
                     ZFSKind::Volume
                 } else {
@@ -130,6 +134,7 @@ impl Pool {
                     .to_owned(), // strip the pool
                 used: used.parse()?,
                 avail: avail.parse()?,
+                // this is just easier to use in places
                 size: used.parse::<u64>()? + avail.parse::<u64>()?,
                 refer: refer.parse()?,
                 mountpoint: if mountpoint == "-" {
