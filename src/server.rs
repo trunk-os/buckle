@@ -103,4 +103,30 @@ mod tests {
             );
         }
     }
+
+    #[cfg(feature = "zfs")]
+    mod zfs {
+        use crate::{
+            grpc::ZfsListFilter,
+            testutil::{create_zpool, destroy_zpool, get_zfs_client, make_server},
+        };
+
+        #[tokio::test]
+        async fn test_zfs_operations() {
+            let _ = destroy_zpool("default", None);
+            let file = create_zpool("default").unwrap();
+            let mut client = get_zfs_client(make_server(None).await.unwrap())
+                .await
+                .unwrap();
+
+            let res = client
+                .list(tonic::Request::new(ZfsListFilter::default()))
+                .await
+                .unwrap();
+
+            assert_eq!(res.into_inner().entries.len(), 0);
+
+            destroy_zpool("default", Some(&file)).unwrap();
+        }
+    }
 }
