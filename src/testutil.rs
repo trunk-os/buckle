@@ -32,3 +32,46 @@ pub(crate) async fn make_server() -> Result<SocketAddr> {
 pub(crate) async fn get_status_client(addr: SocketAddr) -> Result<StatusClient<Channel>> {
     Ok(StatusClient::connect(format!("http://{}", addr)).await?)
 }
+
+#[cfg(feature = "zfs")]
+pub(crate) fn create_zpool(name: &str) -> Result<String> {
+    std::fs::create_dir_all("tmp")?;
+
+    let (_, path) = tempfile::NamedTempFile::new_in("tmp")?.keep()?;
+
+    std::process::Command::new("truncate")
+        .args(vec!["-s", "5G", path.to_str().unwrap()])
+        .status()?;
+
+    std::process::Command::new("zpool")
+        .args(vec![
+            "create",
+            &format!("buckle-test-{}", name),
+            path.to_str().unwrap(),
+        ])
+        .stdout(std::io::stdout())
+        .status()?;
+
+    Ok(path.to_string_lossy().to_string())
+}
+
+#[cfg(feature = "zfs")]
+pub(crate) fn destroy_zpool(name: &str, file: &str) -> Result<()> {
+    std::process::Command::new("zpool")
+        .args(vec!["destroy", "-f", &format!("buckle-test-{}", name)])
+        .status()?;
+    Ok(std::fs::remove_file(&file)?)
+}
+
+#[cfg(test)]
+#[cfg(feature = "zfs")]
+mod tests {
+    use super::{create_zpool, destroy_zpool};
+    #[test]
+    fn create_remove_zfs() {
+        let file = create_zpool("testutil-test").unwrap();
+        assert!(file.len() > 0);
+        destroy_zpool("testutil-test", &file).unwrap();
+        assert!(!std::fs::exists(file).unwrap())
+    }
+}

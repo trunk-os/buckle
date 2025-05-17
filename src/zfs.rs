@@ -273,3 +273,14 @@ impl Controller {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[cfg(feature = "zfs")]
+mod tests {
+    mod controller {
+        #[test]
+        fn test_controller_list() {}
+    }
+
+    mod pool {}
+}

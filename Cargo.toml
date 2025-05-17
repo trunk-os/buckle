@@ -13,3 +13,11 @@ fancy-duration = "*"
 
 [build-dependencies]
 tonic-build = "*"
+
+[dev-dependencies]
+tempfile = "*"
+libc = "*"
+
+# these are currently only used for testing
+[features]
+zfs = []
