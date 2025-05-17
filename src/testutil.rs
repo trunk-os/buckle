@@ -63,7 +63,6 @@ pub(crate) fn destroy_zpool(name: &str, file: &str) -> Result<()> {
     Ok(std::fs::remove_file(&file)?)
 }
 
-#[cfg(test)]
 #[cfg(feature = "zfs")]
 mod tests {
     use super::{create_zpool, destroy_zpool};
