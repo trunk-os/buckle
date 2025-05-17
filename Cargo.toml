@@ -10,6 +10,8 @@ prost = "*"
 clap = { version = "*", features = [ "derive" ] }
 anyhow = "*"
 fancy-duration = "*"
+serde = { version = "*", features = [ "derive" ] }
+serde_yaml_ng = "*"
 
 [build-dependencies]
 tonic-build = "*"

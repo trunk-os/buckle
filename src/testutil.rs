@@ -1,12 +1,18 @@
 use crate::grpc::status_client::StatusClient;
 use crate::server::Server;
 use anyhow::{anyhow, Result};
+use std::sync::LazyLock;
 use std::{net::SocketAddr, time::Duration};
 use tokio::net::TcpListener;
 use tonic::transport::Channel;
 
-#[cfg(feature = "zfs")]
 pub(crate) const BUCKLE_TEST_ZPOOL_PREFIX: &str = "buckle-test";
+pub(crate) const DEFAULT_CONFIG: LazyLock<crate::config::Config> =
+    LazyLock::new(|| crate::config::Config {
+        zfs: crate::config::ZFSConfig {
+            pool: format!("{}-default", BUCKLE_TEST_ZPOOL_PREFIX),
+        },
+    });
 
 pub(crate) async fn find_listener() -> Result<SocketAddr> {
     for x in 3000..32767 {
@@ -20,8 +26,8 @@ pub(crate) async fn find_listener() -> Result<SocketAddr> {
     Err(anyhow!("could not find open port"))
 }
 
-pub(crate) async fn make_server() -> Result<SocketAddr> {
-    let server = Server::default();
+pub(crate) async fn make_server(config: Option<crate::config::Config>) -> Result<SocketAddr> {
+    let server = Server::new_with_config(Some(config.unwrap_or_else(|| DEFAULT_CONFIG.clone())));
     let addr = find_listener().await?;
 
     tokio::spawn(async move { server.start(addr.clone()).await.unwrap() });

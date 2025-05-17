@@ -9,9 +9,19 @@ use tonic::{transport::Server as TransportServer, Request, Response, Result};
 
 // FIXME needs a way to shut down
 #[derive(Debug, Default, Clone)]
-pub struct Server;
+pub struct Server {
+    config: crate::config::Config,
+}
 
 impl Server {
+    #[cfg(test)]
+    pub(crate) fn new_with_config(config: Option<crate::config::Config>) -> Self {
+        match config {
+            Some(config) => Self { config },
+            None => Self::default(),
+        }
+    }
+
     pub fn start(
         &self,
         addr: SocketAddr,
@@ -32,12 +42,16 @@ impl Status for Server {
 
 #[tonic::async_trait]
 impl Zfs for Server {
-    async fn list(
-        &self,
-        _filter: Request<ZfsListFilter>,
-    ) -> Result<Response<ZfsList>, tonic::Status> {
-        return Ok(Response::new(ZfsList::default()));
+    async fn list(&self, filter: Request<ZfsListFilter>) -> Result<Response<ZfsList>> {
+        let list = self
+            .config
+            .zfs
+            .controller()
+            .list(filter.get_ref().filter.clone())
+            .map_err(|e| tonic::Status::new(tonic::Code::Internal, e.to_string()))?;
+        return Ok(Response::new(list.into()));
     }
+
     async fn create_dataset(
         &self,
         _dataset: Request<ZfsDataset>,
@@ -64,7 +78,7 @@ mod tests {
 
         #[tokio::test]
         async fn test_ping() {
-            let mut client = get_status_client(make_server().await.unwrap())
+            let mut client = get_status_client(make_server(None).await.unwrap())
                 .await
                 .unwrap();
             assert!(
