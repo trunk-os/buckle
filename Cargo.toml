@@ -12,6 +12,7 @@ anyhow = "*"
 fancy-duration = "*"
 serde = { version = "*", features = [ "derive" ] }
 serde_yaml_ng = "*"
+tokio-stream = "*"
 
 [build-dependencies]
 tonic-build = "*"

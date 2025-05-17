@@ -1,5 +1,3 @@
-use std::net::SocketAddr;
-
 use crate::grpc::{
     status_server::{Status, StatusServer},
     zfs_server::{Zfs, ZfsServer},
@@ -24,18 +22,20 @@ impl Server {
 
     pub fn start(
         &self,
-        addr: SocketAddr,
-    ) -> impl std::future::Future<Output = Result<(), tonic::transport::Error>> {
-        TransportServer::builder()
+    ) -> anyhow::Result<impl std::future::Future<Output = Result<(), tonic::transport::Error>>>
+    {
+        let uds = tokio::net::UnixListener::bind(self.config.socket.clone())?;
+        let uds_stream = tokio_stream::wrappers::UnixListenerStream::new(uds);
+        Ok(TransportServer::builder()
             .add_service(StatusServer::new(self.clone()))
             .add_service(ZfsServer::new(self.clone()))
-            .serve(addr)
+            .serve_with_incoming(uds_stream))
     }
 }
 
 #[tonic::async_trait]
 impl Status for Server {
-    async fn ping(&self, _: Request<()>) -> Result<Response<()>, tonic::Status> {
+    async fn ping(&self, _: Request<()>) -> Result<Response<()>> {
         return Ok(Response::new(()));
     }
 }
@@ -52,10 +52,7 @@ impl Zfs for Server {
         return Ok(Response::new(list.into()));
     }
 
-    async fn create_dataset(
-        &self,
-        dataset: Request<ZfsDataset>,
-    ) -> Result<Response<()>, tonic::Status> {
+    async fn create_dataset(&self, dataset: Request<ZfsDataset>) -> Result<Response<()>> {
         self.config
             .zfs
             .controller()
@@ -65,10 +62,7 @@ impl Zfs for Server {
         return Ok(Response::new(()));
     }
 
-    async fn create_volume(
-        &self,
-        volume: Request<ZfsVolume>,
-    ) -> Result<Response<()>, tonic::Status> {
+    async fn create_volume(&self, volume: Request<ZfsVolume>) -> Result<Response<()>> {
         self.config
             .zfs
             .controller()
@@ -77,7 +71,7 @@ impl Zfs for Server {
         return Ok(Response::new(()));
     }
 
-    async fn destroy(&self, name: Request<ZfsName>) -> Result<Response<()>, tonic::Status> {
+    async fn destroy(&self, name: Request<ZfsName>) -> Result<Response<()>> {
         self.config
             .zfs
             .controller()

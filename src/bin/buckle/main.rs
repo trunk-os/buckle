@@ -21,7 +21,8 @@ async fn main() -> Result<()> {
 
     match args.command {
         Commands::Ping => {
-            let mut client = status_client::StatusClient::connect("http://[::]:5001").await?;
+            let mut client =
+                status_client::StatusClient::connect("unix:///tmp/buckled.sock").await?;
             let start = std::time::Instant::now();
             client.ping(tonic::Request::new(())).await?;
             println!(

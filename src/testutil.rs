@@ -2,52 +2,50 @@ use crate::grpc::status_client::StatusClient;
 use crate::server::Server;
 use anyhow::{anyhow, Result};
 use std::sync::LazyLock;
-use std::{net::SocketAddr, time::Duration};
-use tokio::net::TcpListener;
+use std::time::Duration;
+use tempfile::NamedTempFile;
 use tonic::transport::Channel;
 
 pub(crate) const BUCKLE_TEST_ZPOOL_PREFIX: &str = "buckle-test";
 
 pub(crate) const DEFAULT_CONFIG: LazyLock<crate::config::Config> =
     LazyLock::new(|| crate::config::Config {
+        socket: "/tmp/buckled.sock".into(),
         zfs: crate::config::ZFSConfig {
             pool: format!("{}-default", BUCKLE_TEST_ZPOOL_PREFIX),
         },
     });
 
-pub(crate) async fn find_listener() -> Result<SocketAddr> {
-    for x in 3000..32767 {
-        let addr: SocketAddr = format!("127.0.0.1:{}", x).parse()?;
-        match TcpListener::bind(addr).await {
-            Ok(_) => return Ok(addr),
-            Err(_) => {}
-        }
-    }
-
-    Err(anyhow!("could not find open port"))
+pub(crate) fn find_listener() -> Result<std::path::PathBuf> {
+    std::fs::create_dir_all("tmp/sockets")?;
+    let file = NamedTempFile::new_in("tmp/sockets")?;
+    Ok(file.path().to_path_buf())
 }
 
-pub(crate) async fn make_server(config: Option<crate::config::Config>) -> Result<SocketAddr> {
-    let server = Server::new_with_config(Some(config.unwrap_or_else(|| DEFAULT_CONFIG.clone())));
-    let addr = find_listener().await?;
+pub(crate) async fn make_server(
+    config: Option<crate::config::Config>,
+) -> Result<std::path::PathBuf> {
+    let mut config = config.unwrap_or_else(|| DEFAULT_CONFIG.clone());
+    config.socket = find_listener()?;
+    let server = Server::new_with_config(Some(config.clone()));
 
-    tokio::spawn(async move { server.start(addr.clone()).await.unwrap() });
+    tokio::spawn(async move { server.start().unwrap().await.unwrap() });
 
     // wait for server to start
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    Ok(addr)
+    Ok(config.socket)
 }
 
-pub(crate) async fn get_status_client(addr: SocketAddr) -> Result<StatusClient<Channel>> {
-    Ok(StatusClient::connect(format!("http://{}", addr)).await?)
+pub(crate) async fn get_status_client(socket: std::path::PathBuf) -> Result<StatusClient<Channel>> {
+    Ok(StatusClient::connect(format!("unix://{}", socket.to_str().unwrap())).await?)
 }
 
 #[cfg(feature = "zfs")]
 use crate::grpc::zfs_client::ZfsClient;
 #[cfg(feature = "zfs")]
-pub(crate) async fn get_zfs_client(addr: SocketAddr) -> Result<ZfsClient<Channel>> {
-    Ok(ZfsClient::connect(format!("http://{}", addr)).await?)
+pub(crate) async fn get_zfs_client(socket: std::path::PathBuf) -> Result<ZfsClient<Channel>> {
+    Ok(ZfsClient::connect(format!("unix://{}", socket.to_str().unwrap())).await?)
 }
 
 // FIXME these commands should accept Option<&str>, setting the name to "default" when None. This
