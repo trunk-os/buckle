@@ -6,9 +6,9 @@ use std::time::Duration;
 use tempfile::NamedTempFile;
 use tonic::transport::Channel;
 
-pub(crate) const BUCKLE_TEST_ZPOOL_PREFIX: &str = "buckle-test";
+pub const BUCKLE_TEST_ZPOOL_PREFIX: &str = "buckle-test";
 
-pub(crate) const DEFAULT_CONFIG: LazyLock<crate::config::Config> =
+pub const DEFAULT_CONFIG: LazyLock<crate::config::Config> =
     LazyLock::new(|| crate::config::Config {
         socket: "/tmp/buckled.sock".into(),
         zfs: crate::config::ZFSConfig {
@@ -16,15 +16,13 @@ pub(crate) const DEFAULT_CONFIG: LazyLock<crate::config::Config> =
         },
     });
 
-pub(crate) fn find_listener() -> Result<std::path::PathBuf> {
+pub fn find_listener() -> Result<std::path::PathBuf> {
     std::fs::create_dir_all("tmp/sockets")?;
     let file = NamedTempFile::new_in("tmp/sockets")?;
     Ok(file.path().to_path_buf())
 }
 
-pub(crate) async fn make_server(
-    config: Option<crate::config::Config>,
-) -> Result<std::path::PathBuf> {
+pub async fn make_server(config: Option<crate::config::Config>) -> Result<std::path::PathBuf> {
     let mut config = config.unwrap_or_else(|| DEFAULT_CONFIG.clone());
     config.socket = find_listener()?;
     let server = Server::new_with_config(Some(config.clone()));
@@ -37,14 +35,14 @@ pub(crate) async fn make_server(
     Ok(config.socket)
 }
 
-pub(crate) async fn get_status_client(socket: std::path::PathBuf) -> Result<StatusClient<Channel>> {
+pub async fn get_status_client(socket: std::path::PathBuf) -> Result<StatusClient<Channel>> {
     Ok(StatusClient::connect(format!("unix://{}", socket.to_str().unwrap())).await?)
 }
 
 #[cfg(feature = "zfs")]
 use crate::grpc::zfs_client::ZfsClient;
 #[cfg(feature = "zfs")]
-pub(crate) async fn get_zfs_client(socket: std::path::PathBuf) -> Result<ZfsClient<Channel>> {
+pub async fn get_zfs_client(socket: std::path::PathBuf) -> Result<ZfsClient<Channel>> {
     Ok(ZfsClient::connect(format!("unix://{}", socket.to_str().unwrap())).await?)
 }
 
@@ -53,7 +51,7 @@ pub(crate) async fn get_zfs_client(socket: std::path::PathBuf) -> Result<ZfsClie
 #[cfg(feature = "zfs")]
 use anyhow::anyhow;
 #[cfg(feature = "zfs")]
-pub(crate) fn create_zpool(name: &str) -> Result<String> {
+pub fn create_zpool(name: &str) -> Result<String> {
     std::fs::create_dir_all("tmp")?;
 
     let (_, path) = tempfile::NamedTempFile::new_in("tmp")?.keep()?;
@@ -83,7 +81,7 @@ pub(crate) fn create_zpool(name: &str) -> Result<String> {
 }
 
 #[cfg(feature = "zfs")]
-pub(crate) fn destroy_zpool(name: &str, file: Option<&str>) -> Result<()> {
+pub fn destroy_zpool(name: &str, file: Option<&str>) -> Result<()> {
     let name = format!("{}-{}", BUCKLE_TEST_ZPOOL_PREFIX, name);
     if !std::process::Command::new("zpool")
         .args(vec!["destroy", "-f", &name])
@@ -103,7 +101,7 @@ pub(crate) fn destroy_zpool(name: &str, file: Option<&str>) -> Result<()> {
 }
 
 #[cfg(feature = "zfs")]
-pub(crate) fn list_zpools() -> Result<Vec<String>> {
+pub fn list_zpools() -> Result<Vec<String>> {
     let out = std::process::Command::new("zpool")
         .args(vec!["list"])
         .stderr(std::io::stderr())
