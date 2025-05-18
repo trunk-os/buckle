@@ -24,3 +24,4 @@ libc = "*"
 # these are currently only used for testing
 [features]
 zfs = []
+test = []

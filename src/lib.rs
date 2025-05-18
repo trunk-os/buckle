@@ -4,6 +4,10 @@ pub(crate) mod grpc;
 pub mod server;
 pub(crate) mod zfs;
 
+// dirty af but it works
+#[cfg(feature = "test")]
+pub mod testutil;
+
 #[cfg(test)]
 pub mod testutil;
 
