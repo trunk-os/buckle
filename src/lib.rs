@@ -1,3 +1,4 @@
+pub mod client;
 pub(crate) mod config;
 pub mod grpc;
 pub mod server;

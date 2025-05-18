@@ -47,11 +47,29 @@ pub struct ZFSStat {
     // FIXME collect options (like quotas)
 }
 
+impl Into<ZfsDataset> for Dataset {
+    fn into(self) -> ZfsDataset {
+        ZfsDataset {
+            name: self.name,
+            quota: self.quota,
+        }
+    }
+}
+
 impl From<ZfsDataset> for Dataset {
     fn from(value: ZfsDataset) -> Self {
         Self {
             name: value.name,
             quota: value.quota,
+        }
+    }
+}
+
+impl Into<ZfsVolume> for Volume {
+    fn into(self) -> ZfsVolume {
+        ZfsVolume {
+            name: self.name,
+            size: self.size,
         }
     }
 }
@@ -65,6 +83,16 @@ impl From<ZfsVolume> for Volume {
     }
 }
 
+impl From<ZfsList> for Vec<ZFSStat> {
+    fn from(value: ZfsList) -> Self {
+        let mut list = Self::default();
+        for item in value.entries {
+            list.push(item.into())
+        }
+        list
+    }
+}
+
 impl Into<ZfsList> for Vec<ZFSStat> {
     fn into(self) -> ZfsList {
         let mut list = ZfsList::default();
@@ -72,6 +100,25 @@ impl Into<ZfsList> for Vec<ZFSStat> {
             list.entries.push(item.into())
         }
         list
+    }
+}
+
+impl From<ZfsEntry> for ZFSStat {
+    fn from(value: ZfsEntry) -> Self {
+        Self {
+            kind: match value.kind() {
+                ZfsType::Volume => ZFSKind::Volume,
+                ZfsType::Dataset => ZFSKind::Dataset,
+            }
+            .into(),
+            name: value.name,
+            full_name: value.full_name,
+            size: value.size,
+            used: value.used,
+            avail: value.avail,
+            refer: value.refer,
+            mountpoint: value.mountpoint,
+        }
     }
 }
 
