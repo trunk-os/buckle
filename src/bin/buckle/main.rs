@@ -1,5 +1,5 @@
 use anyhow::Result;
-use buckle::grpc::status_client;
+use buckle::client::Client;
 use clap::{Parser, Subcommand};
 use fancy_duration::AsFancyDuration;
 
@@ -21,10 +21,9 @@ async fn main() -> Result<()> {
 
     match args.command {
         Commands::Ping => {
-            let mut client =
-                status_client::StatusClient::connect("unix:///tmp/buckled.sock").await?;
+            let client = Client::new("/tmp/buckled.sock".into())?;
             let start = std::time::Instant::now();
-            client.ping(tonic::Request::new(())).await?;
+            client.status().await?.ping().await?;
             println!(
                 "Ping succeded. Latency: {}",
                 (std::time::Instant::now() - start).fancy_duration()

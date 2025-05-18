@@ -1,6 +1,6 @@
 pub mod client;
 pub(crate) mod config;
-pub mod grpc;
+pub(crate) mod grpc;
 pub mod server;
 pub(crate) mod zfs;
 
