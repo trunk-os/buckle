@@ -1,6 +1,6 @@
 use crate::grpc::status_client::StatusClient;
 use crate::server::Server;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use std::sync::LazyLock;
 use std::time::Duration;
 use tempfile::NamedTempFile;
@@ -50,6 +50,8 @@ pub(crate) async fn get_zfs_client(socket: std::path::PathBuf) -> Result<ZfsClie
 
 // FIXME these commands should accept Option<&str>, setting the name to "default" when None. This
 // would match the default zpool configuration setup for the server.
+#[cfg(feature = "zfs")]
+use anyhow::anyhow;
 #[cfg(feature = "zfs")]
 pub(crate) fn create_zpool(name: &str) -> Result<String> {
     std::fs::create_dir_all("tmp")?;

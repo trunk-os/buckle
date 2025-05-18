@@ -5,7 +5,7 @@ pub mod server;
 pub(crate) mod zfs;
 
 #[cfg(test)]
-pub(crate) mod testutil;
+pub mod testutil;
 
 #[cfg(test)]
 #[cfg(feature = "zfs")]
