@@ -184,7 +184,6 @@ dependencies = [
  "anyhow",
  "clap",
  "fancy-duration",
- "libc",
  "prost",
  "serde",
  "serde_yaml_ng",

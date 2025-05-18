@@ -13,15 +13,15 @@ fancy-duration = "*"
 serde = { version = "*", features = [ "derive" ] }
 serde_yaml_ng = "*"
 tokio-stream = "*"
+tempfile = { version = "*", optional = true }
 
 [build-dependencies]
 tonic-build = "*"
 
 [dev-dependencies]
 tempfile = "*"
-libc = "*"
 
 # these are currently only used for testing
 [features]
-zfs = []
-test = []
+zfs = [] 
+test = [ "tempfile" ]
