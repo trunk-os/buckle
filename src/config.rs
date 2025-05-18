@@ -10,13 +10,13 @@ fn default_zpool() -> String {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub(crate) struct Config {
+pub struct Config {
     pub(crate) socket: std::path::PathBuf,
     pub(crate) zfs: ZFSConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub(crate) struct ZFSConfig {
+pub struct ZFSConfig {
     #[serde(default = "default_zpool")]
     pub(crate) pool: String,
 }

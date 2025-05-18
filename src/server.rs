@@ -13,7 +13,7 @@ pub struct Server {
 
 impl Server {
     #[cfg(test)]
-    pub(crate) fn new_with_config(config: Option<crate::config::Config>) -> Self {
+    pub fn new_with_config(config: Option<crate::config::Config>) -> Self {
         match config {
             Some(config) => Self { config },
             None => Self::default(),
