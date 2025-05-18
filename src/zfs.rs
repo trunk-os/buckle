@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 use crate::grpc::{ZfsDataset, ZfsEntry, ZfsList, ZfsType, ZfsVolume};
 use anyhow::{anyhow, Result};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -10,19 +11,19 @@ pub enum Operation {
     Destroy(String),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ZFSKind {
     Dataset,
     Volume,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Dataset {
     pub name: String,
     pub quota: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Volume {
     pub name: String,
     pub size: u64,
@@ -34,7 +35,7 @@ pub struct Pool {
     controller: Controller,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ZFSStat {
     pub kind: ZFSKind,
     pub name: String,
