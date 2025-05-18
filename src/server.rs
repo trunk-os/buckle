@@ -12,7 +12,6 @@ pub struct Server {
 }
 
 impl Server {
-    #[cfg(test)]
     pub fn new_with_config(config: Option<crate::config::Config>) -> Self {
         match config {
             Some(config) => Self { config },
