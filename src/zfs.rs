@@ -48,11 +48,11 @@ pub struct ZFSStat {
     // FIXME collect options (like quotas)
 }
 
-impl Into<ZfsDataset> for Dataset {
-    fn into(self) -> ZfsDataset {
-        ZfsDataset {
-            name: self.name,
-            quota: self.quota,
+impl From<Dataset> for ZfsDataset {
+    fn from(value: Dataset) -> Self {
+        Self {
+            name: value.name,
+            quota: value.quota,
         }
     }
 }
@@ -66,11 +66,11 @@ impl From<ZfsDataset> for Dataset {
     }
 }
 
-impl Into<ZfsVolume> for Volume {
-    fn into(self) -> ZfsVolume {
-        ZfsVolume {
-            name: self.name,
-            size: self.size,
+impl From<Volume> for ZfsVolume {
+    fn from(value: Volume) -> Self {
+        Self {
+            name: value.name,
+            size: value.size,
         }
     }
 }
@@ -94,10 +94,10 @@ impl From<ZfsList> for Vec<ZFSStat> {
     }
 }
 
-impl Into<ZfsList> for Vec<ZFSStat> {
-    fn into(self) -> ZfsList {
-        let mut list = ZfsList::default();
-        for item in self {
+impl From<Vec<ZFSStat>> for ZfsList {
+    fn from(value: Vec<ZFSStat>) -> Self {
+        let mut list = Self::default();
+        for item in value {
             list.entries.push(item.into())
         }
         list
@@ -110,6 +110,24 @@ impl From<ZfsEntry> for ZFSStat {
             kind: match value.kind() {
                 ZfsType::Volume => ZFSKind::Volume,
                 ZfsType::Dataset => ZFSKind::Dataset,
+            },
+            name: value.name,
+            full_name: value.full_name,
+            size: value.size,
+            used: value.used,
+            avail: value.avail,
+            refer: value.refer,
+            mountpoint: value.mountpoint,
+        }
+    }
+}
+
+impl From<ZFSStat> for ZfsEntry {
+    fn from(value: ZFSStat) -> Self {
+        Self {
+            kind: match value.kind {
+                ZFSKind::Volume => ZfsType::Volume,
+                ZFSKind::Dataset => ZfsType::Dataset,
             }
             .into(),
             name: value.name,
@@ -123,30 +141,11 @@ impl From<ZfsEntry> for ZFSStat {
     }
 }
 
-impl Into<ZfsEntry> for ZFSStat {
-    fn into(self) -> ZfsEntry {
-        ZfsEntry {
-            kind: match self.kind {
-                ZFSKind::Volume => ZfsType::Volume,
-                ZFSKind::Dataset => ZfsType::Dataset,
-            }
-            .into(),
-            name: self.name,
-            full_name: self.full_name,
-            size: self.size,
-            used: self.used,
-            avail: self.avail,
-            refer: self.refer,
-            mountpoint: self.mountpoint,
-        }
-    }
-}
-
 impl Pool {
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
-            controller: Controller::default(),
+            controller: Controller,
         }
     }
 
@@ -194,7 +193,7 @@ impl Pool {
             'line: for ch in line.chars() {
                 if ch != ' ' {
                     tmp.push(ch)
-                } else if tmp != "" {
+                } else if !tmp.is_empty() {
                     match stage {
                         0 => name = tmp,
                         1 => used = tmp,
