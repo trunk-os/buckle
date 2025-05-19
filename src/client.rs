@@ -8,6 +8,7 @@ use anyhow::Result;
 use std::path::PathBuf;
 use tonic::{transport::Channel, Request};
 
+#[derive(Debug, Clone)]
 pub struct Client {
     socket: PathBuf,
 }
