@@ -6,6 +6,12 @@ use fancy_duration::AsFancyDuration;
 #[derive(Parser, Debug, Clone)]
 #[command(version, about="CLI interface to the Control Plane for Trunk", long_about=None)]
 struct MainArgs {
+    #[arg(
+        short = 's',
+        help = "The path to the buckle socket",
+        default_value = "/trunk/socket/buckled.sock"
+    )]
+    socket_path: std::path::PathBuf,
     #[command(subcommand)]
     command: Commands,
 }
@@ -21,7 +27,7 @@ async fn main() -> Result<()> {
 
     match args.command {
         Commands::Ping => {
-            let client = Client::new("/tmp/buckled.sock".into())?;
+            let client = Client::new(args.socket_path)?;
             let start = std::time::Instant::now();
             client.status().await?.ping().await?;
             println!(
