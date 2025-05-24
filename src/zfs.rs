@@ -212,7 +212,7 @@ impl Pool {
         Ok(())
     }
 
-    pub fn modify_dataset(&self, info: &ModifyDataset) -> Result<()> {
+    pub fn modify_dataset(&self, info: ModifyDataset) -> Result<()> {
         let mut map = HashMap::default();
         if let Some(quota) = &info.modifications.quota {
             map.insert("quota", format!("{}", quota));
@@ -228,7 +228,7 @@ impl Pool {
         Ok(())
     }
 
-    pub fn modify_volume(&self, info: &ModifyVolume) -> Result<()> {
+    pub fn modify_volume(&self, info: ModifyVolume) -> Result<()> {
         let mut map = HashMap::default();
         if info.modifications.size != 0 {
             map.insert("volsize", format!("{}", info.modifications.size));
@@ -523,7 +523,7 @@ mod tests {
             assert_ne!(list[0].avail, 0);
             assert_eq!(list[0].mountpoint, None);
 
-            pool.modify_volume(&ModifyVolume {
+            pool.modify_volume(ModifyVolume {
                 name: "volume".into(),
                 modifications: Volume {
                     name: "volume2".into(),
@@ -571,7 +571,7 @@ mod tests {
                 ))
             );
 
-            pool.modify_dataset(&ModifyDataset {
+            pool.modify_dataset(ModifyDataset {
                 name: "dataset".into(),
                 modifications: Dataset {
                     name: "dataset2".into(),
