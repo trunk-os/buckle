@@ -61,6 +61,20 @@ impl ZFSClient {
         Ok(())
     }
 
+    pub async fn modify_dataset(&mut self, dataset: ModifyDataset) -> Result<()> {
+        self.client
+            .modify_dataset(Request::new(dataset.into()))
+            .await?;
+        Ok(())
+    }
+
+    pub async fn modify_volume(&mut self, volume: ModifyVolume) -> Result<()> {
+        self.client
+            .modify_volume(Request::new(volume.into()))
+            .await?;
+        Ok(())
+    }
+
     pub async fn list(&mut self, filter: Option<String>) -> Result<Vec<ZFSStat>> {
         Ok(self
             .client
