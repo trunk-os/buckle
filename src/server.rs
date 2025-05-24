@@ -322,7 +322,11 @@ mod tests {
                 format!("{}-default/volume2", BUCKLE_TEST_ZPOOL_PREFIX),
             );
             assert_ne!(item.size, 0);
-            assert!(item.size < 5 * 1024 * 1024 * 1024 && item.size > 4 * 1024 * 1024 * 1024);
+            assert!(
+                item.size < 6 * 1024 * 1024 && item.size > 4 * 1024 * 1024,
+                "{}",
+                item.size
+            );
             assert_ne!(item.used, 0);
             assert_ne!(item.refer, 0);
             assert_ne!(item.avail, 0);

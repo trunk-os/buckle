@@ -4,7 +4,7 @@ use crate::grpc::{
 };
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ZFSKind {
@@ -298,6 +298,11 @@ impl Pool {
                 continue;
             }
 
+            let short_name = name
+                .strip_prefix(&format!("{}/", self.name))
+                .unwrap_or_else(|| &name)
+                .to_owned();
+
             ret.push(ZFSStat {
                 // volumes don't have a mountpath, '-' is indicated
                 // FIXME relying on datasets being mounted is a thing we're doing right now, it'll
@@ -309,17 +314,23 @@ impl Pool {
                     ZFSKind::Dataset
                 },
                 full_name: name.clone(),
-                name: name
-                    .strip_prefix(&format!("{}/", self.name))
-                    .unwrap_or_else(|| &name)
-                    .to_owned(), // strip the pool
+                name: short_name.clone(), // strip the pool
                 used: used.parse()?,
                 avail: avail.parse()?,
                 // this is just easier to use in places
                 size: if mountpoint == "-" {
-                    used.parse::<u64>()? + avail.parse::<u64>()?
+                    self.controller.get(&self.name, &short_name, "volsize")?
                 } else {
-                    used.parse::<u64>()? + avail.parse::<u64>()?
+                    let quota = self
+                        .controller
+                        .get(&self.name, &short_name, "quota")
+                        .unwrap_or_default();
+
+                    if quota != 0 {
+                        quota
+                    } else {
+                        self.controller.get(&self.name, &short_name, "available")?
+                    }
                 },
                 refer: refer.parse()?,
                 mountpoint: if mountpoint == "-" {
@@ -438,6 +449,42 @@ impl Controller {
         Ok(())
     }
 
+    fn get<T>(&self, pool: &str, name: &str, property: &str) -> Result<T>
+    where
+        T: FromStr + Send + Sync,
+        T::Err: ToString,
+    {
+        let args = vec![
+            "get".to_string(),
+            "-p".to_string(),
+            property.to_string(),
+            format!("{}/{}", pool, name),
+        ];
+        let out = Self::run("zfs", args)?;
+        let line = out.lines().skip(1).next().unwrap();
+        let mut value = String::new();
+
+        let mut tmp = String::new();
+        let mut stage = 0;
+        'line: for ch in line.chars() {
+            if ch != ' ' {
+                tmp.push(ch)
+            } else if !tmp.is_empty() {
+                match stage {
+                    0 | 1 => {}
+                    2 => value = tmp,
+                    _ => break 'line,
+                };
+                stage += 1;
+                tmp = String::new();
+            }
+        }
+
+        Ok(value
+            .parse()
+            .map_err(|e: <T as FromStr>::Err| anyhow!(e.to_string()))?)
+    }
+
     fn create_volume(
         &self,
         pool: &str,
@@ -542,7 +589,7 @@ mod tests {
             );
             assert_ne!(list[0].size, 0);
             assert!(
-                list[0].size < 5 * 1024 * 1024 * 1024 && list[0].size > 4 * 1024 * 1024 * 1024,
+                list[0].size < 151 * 1024 * 1024 && list[0].size > 149 * 1024 * 1024,
                 "{}",
                 list[0].size
             );
