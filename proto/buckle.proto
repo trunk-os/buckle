@@ -23,6 +23,16 @@ enum ZFSType {
   Volume  = 1;
 }
 
+message ZFSModifyDataset {
+  string     name          = 1;
+  ZFSDataset modifications = 2;
+}
+
+message ZFSModifyVolume {
+  string    name          = 1;
+  ZFSVolume modifications = 2;
+}
+
 message ZFSEntry {
            ZFSType kind      = 1;
            string  name      = 2;
@@ -36,7 +46,7 @@ message ZFSEntry {
 
 message ZFSDataset {
            string name  = 1;
-  optional string quota = 2;
+  optional uint64 quota = 2;
 }
 
 message ZFSVolume {
@@ -48,5 +58,7 @@ service ZFS {
   rpc List (ZFSListFilter)      returns (ZFSList);
   rpc CreateDataset(ZFSDataset) returns (google.protobuf.Empty);
   rpc CreateVolume(ZFSVolume)   returns (google.protobuf.Empty);
+  rpc ModifyDataset(ZFSModifyDataset) returns (google.protobuf.Empty);
+  rpc ModifyVolume(ZFSModifyVolume)   returns (google.protobuf.Empty);
   rpc Destroy(ZFSName)          returns (google.protobuf.Empty);
 }

@@ -1,7 +1,7 @@
 use crate::grpc::{
     status_server::{Status, StatusServer},
     zfs_server::{Zfs, ZfsServer},
-    ZfsDataset, ZfsList, ZfsListFilter, ZfsName, ZfsVolume,
+    ZfsDataset, ZfsList, ZfsListFilter, ZfsModifyDataset, ZfsModifyVolume, ZfsName, ZfsVolume,
 };
 use tonic::{transport::Server as TransportServer, Request, Response, Result};
 
@@ -41,6 +41,14 @@ impl Status for Server {
 
 #[tonic::async_trait]
 impl Zfs for Server {
+    async fn modify_dataset(&self, _info: Request<ZfsModifyDataset>) -> Result<Response<()>> {
+        Ok(Response::new(()))
+    }
+
+    async fn modify_volume(&self, _info: Request<ZfsModifyVolume>) -> Result<Response<()>> {
+        Ok(Response::new(()))
+    }
+
     async fn list(&self, filter: Request<ZfsListFilter>) -> Result<Response<ZfsList>> {
         let list = self
             .config

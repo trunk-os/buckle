@@ -1,15 +1,10 @@
 #![allow(dead_code)]
-use crate::grpc::{ZfsDataset, ZfsEntry, ZfsList, ZfsType, ZfsVolume};
+use crate::grpc::{
+    ZfsDataset, ZfsEntry, ZfsList, ZfsModifyDataset, ZfsModifyVolume, ZfsType, ZfsVolume,
+};
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Operation {
-    CreateDataset(Dataset),
-    CreateVolume(Volume),
-    Destroy(String),
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ZFSKind {
@@ -20,13 +15,25 @@ pub enum ZFSKind {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Dataset {
     pub name: String,
-    pub quota: Option<String>,
+    pub quota: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct ModifyDataset {
+    pub name: String,
+    pub modifications: Dataset,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Volume {
     pub name: String,
     pub size: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct ModifyVolume {
+    pub name: String,
+    pub modifications: Volume,
 }
 
 #[derive(Debug, Clone)]
@@ -46,6 +53,42 @@ pub struct ZFSStat {
     pub refer: u64,
     pub mountpoint: Option<String>,
     // FIXME collect options (like quotas)
+}
+
+impl From<ModifyVolume> for ZfsModifyVolume {
+    fn from(value: ModifyVolume) -> Self {
+        Self {
+            name: value.name,
+            modifications: Some(value.modifications.into()),
+        }
+    }
+}
+
+impl From<ZfsModifyVolume> for ModifyVolume {
+    fn from(value: ZfsModifyVolume) -> Self {
+        Self {
+            name: value.name,
+            modifications: value.modifications.unwrap_or_default().into(),
+        }
+    }
+}
+
+impl From<ModifyDataset> for ZfsModifyDataset {
+    fn from(value: ModifyDataset) -> Self {
+        Self {
+            name: value.name,
+            modifications: Some(value.modifications.into()),
+        }
+    }
+}
+
+impl From<ZfsModifyDataset> for ModifyDataset {
+    fn from(value: ZfsModifyDataset) -> Self {
+        Self {
+            name: value.name,
+            modifications: value.modifications.unwrap_or_default().into(),
+        }
+    }
 }
 
 impl From<Dataset> for ZfsDataset {
@@ -154,7 +197,7 @@ impl Pool {
 
         if let Some(quota) = &info.quota {
             let mut tmp = CommandOptions::default();
-            tmp.insert("quota".to_string(), quota.clone());
+            tmp.insert("quota".to_string(), format!("{}", quota));
             options = Some(tmp);
         }
 
@@ -166,6 +209,38 @@ impl Pool {
     pub fn create_volume(&self, info: &Volume) -> Result<()> {
         self.controller
             .create_volume(&self.name, &info.name, info.size, None)?;
+        Ok(())
+    }
+
+    pub fn modify_dataset(&self, info: &ModifyDataset) -> Result<()> {
+        let mut map = HashMap::default();
+        if let Some(quota) = &info.modifications.quota {
+            map.insert("quota", format!("{}", quota));
+        }
+
+        self.controller.set(&self.name, &info.name, map)?;
+
+        if info.modifications.name != "" && info.name != info.modifications.name {
+            self.controller
+                .rename(&self.name, &info.name, &info.modifications.name)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn modify_volume(&self, info: &ModifyVolume) -> Result<()> {
+        let mut map = HashMap::default();
+        if info.modifications.size != 0 {
+            map.insert("volsize", format!("{}", info.modifications.size));
+        }
+
+        self.controller.set(&self.name, &info.name, map)?;
+
+        if info.modifications.name != "" && info.name != info.modifications.name {
+            self.controller
+                .rename(&self.name, &info.name, &info.modifications.name)?;
+        }
+
         Ok(())
     }
 
@@ -242,7 +317,7 @@ impl Pool {
                 avail: avail.parse()?,
                 // this is just easier to use in places
                 size: if mountpoint == "-" {
-                    used.parse()?
+                    used.parse::<u64>()? + avail.parse::<u64>()?
                 } else {
                     used.parse::<u64>()? + avail.parse::<u64>()?
                 },
@@ -334,6 +409,35 @@ impl Controller {
         Ok(())
     }
 
+    fn rename(&self, pool: &str, orig: &str, new: &str) -> Result<()> {
+        let args = vec![
+            "rename",
+            "-p",
+            &format!("{}/{}", pool, orig),
+            &format!("{}/{}", pool, new),
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+
+        Self::run("zfs", args)?;
+
+        Ok(())
+    }
+
+    fn set(&self, pool: &str, name: &str, properties: HashMap<&str, String>) -> Result<()> {
+        let mut args = vec!["set".to_string()];
+
+        for (key, value) in &properties {
+            args.push(format!("{}={}", key, value));
+        }
+
+        args.push(format!("{}/{}", pool, name));
+
+        Self::run("zfs", args)?;
+        Ok(())
+    }
+
     fn create_volume(
         &self,
         pool: &str,
@@ -364,7 +468,7 @@ mod tests {
         use super::super::Pool;
         use crate::{
             testutil::{create_zpool, destroy_zpool, BUCKLE_TEST_ZPOOL_PREFIX},
-            zfs::ZFSKind,
+            zfs::{Dataset, ModifyDataset, ModifyVolume, Volume, ZFSKind},
         };
         #[test]
         fn test_controller_zfs_lifecycle() {
@@ -404,6 +508,7 @@ mod tests {
             .unwrap();
             let list = pool.list(None).unwrap();
             assert_eq!(list.len(), 2);
+
             let list = pool.list(Some("volume".to_string())).unwrap();
             assert_eq!(list.len(), 1);
             assert_eq!(list[0].kind, ZFSKind::Volume);
@@ -417,6 +522,35 @@ mod tests {
             assert_ne!(list[0].refer, 0);
             assert_ne!(list[0].avail, 0);
             assert_eq!(list[0].mountpoint, None);
+
+            pool.modify_volume(&ModifyVolume {
+                name: "volume".into(),
+                modifications: Volume {
+                    name: "volume2".into(),
+                    size: 150 * 1024 * 1024,
+                },
+            })
+            .unwrap();
+
+            let list = pool.list(Some("volume2".to_string())).unwrap();
+            assert_eq!(list.len(), 1);
+            assert_eq!(list[0].kind, ZFSKind::Volume);
+            assert_eq!(list[0].name, "volume2");
+            assert_eq!(
+                list[0].full_name,
+                format!("{}-controller-list/volume2", BUCKLE_TEST_ZPOOL_PREFIX),
+            );
+            assert_ne!(list[0].size, 0);
+            assert!(
+                list[0].size < 5 * 1024 * 1024 * 1024 && list[0].size > 4 * 1024 * 1024 * 1024,
+                "{}",
+                list[0].size
+            );
+            assert_ne!(list[0].used, 0);
+            assert_ne!(list[0].refer, 0);
+            assert_ne!(list[0].avail, 0);
+            assert_eq!(list[0].mountpoint, None);
+
             let list = pool.list(Some("dataset".to_string())).unwrap();
             assert_eq!(list.len(), 1);
             assert_eq!(list[0].kind, ZFSKind::Dataset);
@@ -436,13 +570,43 @@ mod tests {
                     BUCKLE_TEST_ZPOOL_PREFIX
                 ))
             );
-            pool.destroy("dataset".to_string()).unwrap();
-            let list = pool.list(Some("dataset".to_string())).unwrap();
+
+            pool.modify_dataset(&ModifyDataset {
+                name: "dataset".into(),
+                modifications: Dataset {
+                    name: "dataset2".into(),
+                    quota: Some(5 * 1024 * 1024),
+                },
+            })
+            .unwrap();
+
+            let list = pool.list(Some("dataset2".to_string())).unwrap();
+            assert_eq!(list.len(), 1);
+            assert_eq!(list[0].kind, ZFSKind::Dataset);
+            assert_eq!(list[0].name, "dataset2");
+            assert_eq!(
+                list[0].full_name,
+                format!("{}-controller-list/dataset2", BUCKLE_TEST_ZPOOL_PREFIX),
+            );
+            assert_ne!(list[0].size, 0);
+            assert_ne!(list[0].used, 0);
+            assert_ne!(list[0].refer, 0);
+            assert_ne!(list[0].avail, 0);
+            assert_eq!(
+                list[0].mountpoint,
+                Some(format!(
+                    "/{}-controller-list/dataset2",
+                    BUCKLE_TEST_ZPOOL_PREFIX
+                ))
+            );
+
+            pool.destroy("dataset2".to_string()).unwrap();
+            let list = pool.list(Some("dataset2".to_string())).unwrap();
             assert_eq!(list.len(), 0);
             let list = pool.list(None).unwrap();
             assert_eq!(list.len(), 1);
-            pool.destroy("volume".to_string()).unwrap();
-            let list = pool.list(Some("volume".to_string())).unwrap();
+            pool.destroy("volume2".to_string()).unwrap();
+            let list = pool.list(Some("volume2".to_string())).unwrap();
             assert_eq!(list.len(), 0);
             let list = pool.list(None).unwrap();
             assert_eq!(list.len(), 0);
