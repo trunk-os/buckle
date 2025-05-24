@@ -3,7 +3,7 @@ use crate::grpc::{
     ZfsListFilter, ZfsName,
 };
 
-pub use crate::zfs::{Dataset, Volume, ZFSStat}; // we expose these types we should serve them
+pub use crate::zfs::{Dataset, ModifyDataset, ModifyVolume, Volume, ZFSStat}; // we expose these types we should serve them
 use anyhow::Result;
 use std::path::PathBuf;
 use tonic::{transport::Channel, Request};
