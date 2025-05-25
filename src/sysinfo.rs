@@ -1,10 +1,10 @@
 #![allow(dead_code)]
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sysinfo::System;
 
 use crate::grpc::SystemInfo;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Info {
     uptime: u64,            // in seconds
     available_memory: u64,  // bytes
