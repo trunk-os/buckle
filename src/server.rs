@@ -1,7 +1,11 @@
-use crate::grpc::{
-    status_server::{Status, StatusServer},
-    zfs_server::{Zfs, ZfsServer},
-    ZfsDataset, ZfsList, ZfsListFilter, ZfsModifyDataset, ZfsModifyVolume, ZfsName, ZfsVolume,
+use crate::{
+    grpc::{
+        status_server::{Status, StatusServer},
+        zfs_server::{Zfs, ZfsServer},
+        PingResult, ZfsDataset, ZfsList, ZfsListFilter, ZfsModifyDataset, ZfsModifyVolume, ZfsName,
+        ZfsVolume,
+    },
+    sysinfo::Info,
 };
 use tonic::{transport::Server as TransportServer, Request, Response, Result};
 
@@ -34,8 +38,10 @@ impl Server {
 
 #[tonic::async_trait]
 impl Status for Server {
-    async fn ping(&self, _: Request<()>) -> Result<Response<()>> {
-        return Ok(Response::new(()));
+    async fn ping(&self, _: Request<()>) -> Result<Response<PingResult>> {
+        Ok(Response::new(PingResult {
+            info: Some(Info::default().into()),
+        }))
     }
 }
 

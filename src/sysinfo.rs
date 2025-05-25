@@ -2,8 +2,10 @@
 use serde::Serialize;
 use sysinfo::System;
 
+use crate::grpc::SystemInfo;
+
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct Info {
+pub struct Info {
     uptime: u64,            // in seconds
     available_memory: u64,  // bytes
     total_memory: u64,      // bytes
@@ -13,8 +15,8 @@ pub(crate) struct Info {
     kernel_version: String, // only the version string
     load_average: [f64; 3], // 1, 5, 15 min
     processes: usize,       // just the count
-    total_disk: usize,      // bytes
-    available_disk: usize,  // bytes
+    total_disk: u64,        // bytes
+    available_disk: u64,    // bytes
 }
 
 impl Default for Info {
@@ -35,6 +37,46 @@ impl Default for Info {
             processes: s.processes().len(),
             total_disk: 0,
             available_disk: 0,
+        }
+    }
+}
+
+impl From<SystemInfo> for Info {
+    fn from(value: SystemInfo) -> Self {
+        Self {
+            uptime: value.uptime,
+            available_memory: value.available_memory,
+            total_memory: value.total_memory,
+            cpus: value.cpus as usize,
+            cpu_usage: value.cpu_usage,
+            host_name: value.host_name,
+            kernel_version: value.kernel_version,
+            load_average: [
+                value.load_average[0],
+                value.load_average[1],
+                value.load_average[2],
+            ],
+            processes: value.processes as usize,
+            total_disk: value.total_disk.into(),
+            available_disk: value.available_disk.into(),
+        }
+    }
+}
+
+impl From<Info> for SystemInfo {
+    fn from(value: Info) -> Self {
+        Self {
+            uptime: value.uptime,
+            available_memory: value.available_memory,
+            total_memory: value.total_memory,
+            cpus: value.cpus as u64,
+            cpu_usage: value.cpu_usage,
+            host_name: value.host_name,
+            kernel_version: value.kernel_version,
+            load_average: value.load_average.to_vec(),
+            processes: value.processes as u64,
+            total_disk: value.total_disk.into(),
+            available_disk: value.available_disk.into(),
         }
     }
 }
