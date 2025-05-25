@@ -1,3 +1,4 @@
+use crate::config::LogLevel;
 use crate::grpc::status_client::StatusClient;
 use crate::server::Server;
 use anyhow::Result;
@@ -14,6 +15,7 @@ pub const DEFAULT_CONFIG: LazyLock<crate::config::Config> =
         zfs: crate::config::ZFSConfig {
             pool: format!("{}-default", BUCKLE_TEST_ZPOOL_PREFIX),
         },
+        log_level: LogLevel::Error,
     });
 
 pub fn find_listener() -> Result<std::path::PathBuf> {

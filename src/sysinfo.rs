@@ -1,7 +1,8 @@
+use crate::grpc::SystemInfo;
+use fancy_duration::AsFancyDuration;
 use serde::{Deserialize, Serialize};
 use sysinfo::System;
-
-use crate::grpc::SystemInfo;
+use tracing::{debug, trace};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Info {
@@ -20,11 +21,13 @@ pub struct Info {
 
 impl Default for Info {
     fn default() -> Self {
+        debug!("Collecting system statistics");
+        let time = std::time::Instant::now();
         let s = System::new_all();
         let la = sysinfo::System::load_average();
         let la = [la.one, la.five, la.fifteen];
 
-        Self {
+        let this = Self {
             uptime: sysinfo::System::uptime(),
             available_memory: s.available_memory(),
             total_memory: s.total_memory(),
@@ -46,7 +49,14 @@ impl Default for Info {
                 .map(|d| d.available_space())
                 .reduce(|a, e| a + e)
                 .unwrap_or_default(),
-        }
+        };
+
+        trace!(
+            "Collecting system statistics took: {}",
+            (std::time::Instant::now() - time).fancy_duration(),
+        );
+
+        this
     }
 }
 

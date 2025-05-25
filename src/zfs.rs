@@ -2,8 +2,10 @@ use crate::grpc::{
     ZfsDataset, ZfsEntry, ZfsList, ZfsModifyDataset, ZfsModifyVolume, ZfsType, ZfsVolume,
 };
 use anyhow::{anyhow, Result};
+use fancy_duration::AsFancyDuration;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, str::FromStr};
+use tracing::{debug, error, trace};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ZFSKind {
@@ -260,14 +262,25 @@ impl Pool {
             options = Some(tmp);
         }
 
-        self.controller
-            .create_dataset(&self.name, &info.name, options)?;
+        if let Err(e) = self
+            .controller
+            .create_dataset(&self.name, &info.name, options)
+        {
+            error!("Creating dataset: {}", e.to_string());
+            return Err(e);
+        }
+
         Ok(())
     }
 
     pub fn create_volume(&self, info: &Volume) -> Result<()> {
-        self.controller
-            .create_volume(&self.name, &info.name, info.size, None)?;
+        if let Err(e) = self
+            .controller
+            .create_volume(&self.name, &info.name, info.size, None)
+        {
+            error!("Creating volume: {}", e.to_string());
+            return Err(e);
+        }
         Ok(())
     }
 
@@ -277,11 +290,19 @@ impl Pool {
             map.insert("quota", format!("{}", quota));
         }
 
-        self.controller.set(&self.name, &info.name, map)?;
+        if let Err(e) = self.controller.set(&self.name, &info.name, map) {
+            error!("Setting options on dataset: {}", e.to_string());
+            return Err(e);
+        }
 
         if info.modifications.name != "" && info.name != info.modifications.name {
-            self.controller
-                .rename(&self.name, &info.name, &info.modifications.name)?;
+            if let Err(e) = self
+                .controller
+                .rename(&self.name, &info.name, &info.modifications.name)
+            {
+                error!("Renaming dataset: {}", e.to_string());
+                return Err(e);
+            }
         }
 
         Ok(())
@@ -293,24 +314,43 @@ impl Pool {
             map.insert("volsize", format!("{}", info.modifications.size));
         }
 
-        self.controller.set(&self.name, &info.name, map)?;
+        if let Err(e) = self.controller.set(&self.name, &info.name, map) {
+            error!("Setting options on volume: {}", e.to_string());
+            return Err(e);
+        }
 
         if info.modifications.name != "" && info.name != info.modifications.name {
-            self.controller
-                .rename(&self.name, &info.name, &info.modifications.name)?;
+            if let Err(e) = self
+                .controller
+                .rename(&self.name, &info.name, &info.modifications.name)
+            {
+                error!("Renaming volume: {}", e.to_string());
+                return Err(e);
+            }
         }
 
         Ok(())
     }
 
     pub fn destroy(&self, name: String) -> Result<()> {
-        self.controller.destroy(&self.name, &name)?;
+        if let Err(e) = self.controller.destroy(&self.name, &name) {
+            error!("Destroying dataset: {}", e.to_string());
+            return Err(e);
+        }
+
         Ok(())
     }
 
     pub fn list(&self, filter: Option<String>) -> Result<Vec<ZFSStat>> {
         let mut ret = Vec::new();
-        let list = self.controller.list()?;
+        let list = match self.controller.list() {
+            Ok(x) => x,
+            Err(e) => {
+                error!("Listing datasets: {}", e.to_string());
+                return Err(e);
+            }
+        };
+
         for (name, item) in list.datasets {
             if let Some(filter) = &filter {
                 if !item.name.starts_with(&format!("{}/{}", self.name, filter)) {
@@ -348,7 +388,13 @@ impl Pool {
                 avail: item.properties.available.value,
                 // this is just easier to use in places
                 size: if item.typ == "VOLUME" {
-                    self.controller.get(&self.name, &short_name, "volsize")?
+                    match self.controller.get(&self.name, &short_name, "volsize") {
+                        Ok(x) => x,
+                        Err(e) => {
+                            error!("Getting volume size for {}: {}", name, e.to_string());
+                            return Err(e);
+                        }
+                    }
                 } else {
                     let quota = self
                         .controller
@@ -406,11 +452,32 @@ struct Controller;
 
 impl Controller {
     fn run(command: &str, args: Vec<String>) -> Result<String> {
-        let out = std::process::Command::new(command)
+        debug!("Running command: [{}, {}]", command, args.join(", "));
+        let time = std::time::Instant::now();
+
+        let out = match std::process::Command::new(command)
             .args(args.clone())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
-            .output()?;
+            .output()
+        {
+            Ok(x) => x,
+            Err(e) => {
+                error!(
+                    "Error running command: [{}, {}]: {}",
+                    command,
+                    args.join(", "),
+                    e.to_string()
+                );
+                return Err(e.into());
+            }
+        };
+
+        trace!(
+            "ZFS command took {}",
+            (std::time::Instant::now() - time).fancy_duration()
+        );
+
         if out.status.success() {
             Ok(String::from_utf8(out.stdout)?)
         } else {
