@@ -1,9 +1,14 @@
 use crate::grpc::{
     status_client::StatusClient as GRPCStatusClient, zfs_client::ZfsClient as GRPCZfsClient,
-    ZfsListFilter, ZfsName,
+    PingResult, ZfsListFilter, ZfsName,
 };
 
-pub use crate::zfs::{Dataset, ModifyDataset, ModifyVolume, Volume, ZFSStat}; // we expose these types we should serve them
+// we expose these types we should serve them
+pub use crate::{
+    sysinfo::Info,
+    zfs::{Dataset, ModifyDataset, ModifyVolume, Volume, ZFSStat},
+};
+
 use anyhow::Result;
 use std::path::PathBuf;
 use tonic::{transport::Channel, Request};
@@ -40,9 +45,8 @@ impl Client {
 }
 
 impl StatusClient {
-    pub async fn ping(&mut self) -> Result<()> {
-        self.client.ping(Request::new(())).await?;
-        Ok(())
+    pub async fn ping(&mut self) -> Result<PingResult> {
+        Ok(self.client.ping(Request::new(())).await?.into_inner())
     }
 }
 

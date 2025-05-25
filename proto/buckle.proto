@@ -2,8 +2,26 @@ syntax = "proto3";
 import "google/protobuf/empty.proto";
 package buckle;
 
+message PingResult {
+  SystemInfo info = 1;
+}
+
+message SystemInfo {
+           uint64 uptime           = 1;
+           uint64 available_memory = 2;
+           uint64 total_memory     = 3;
+           uint64 cpus             = 4;
+           float  cpu_usage        = 5;
+           string host_name        = 6;
+           string kernel_version   = 7;
+  repeated double load_average     = 8;
+           uint64 processes        = 9;
+           uint64 total_disk       = 10;
+           uint64 available_disk   = 11;
+}
+
 service Status {
-  rpc Ping (google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc Ping (google.protobuf.Empty) returns (PingResult);
 }
 
 message ZFSList {
@@ -55,10 +73,10 @@ message ZFSVolume {
 }
 
 service ZFS {
-  rpc List (ZFSListFilter)      returns (ZFSList);
-  rpc CreateDataset(ZFSDataset) returns (google.protobuf.Empty);
-  rpc CreateVolume(ZFSVolume)   returns (google.protobuf.Empty);
+  rpc List (ZFSListFilter)            returns (ZFSList);
+  rpc CreateDataset(ZFSDataset)       returns (google.protobuf.Empty);
+  rpc CreateVolume(ZFSVolume)         returns (google.protobuf.Empty);
   rpc ModifyDataset(ZFSModifyDataset) returns (google.protobuf.Empty);
   rpc ModifyVolume(ZFSModifyVolume)   returns (google.protobuf.Empty);
-  rpc Destroy(ZFSName)          returns (google.protobuf.Empty);
+  rpc Destroy(ZFSName)                returns (google.protobuf.Empty);
 }

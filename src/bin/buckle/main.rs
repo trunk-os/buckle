@@ -1,5 +1,5 @@
 use anyhow::Result;
-use buckle::client::Client;
+use buckle::client::{Client, Info};
 use clap::{Parser, Subcommand};
 use fancy_duration::AsFancyDuration;
 
@@ -29,11 +29,17 @@ async fn main() -> Result<()> {
         Commands::Ping => {
             let client = Client::new(args.socket_path)?;
             let start = std::time::Instant::now();
-            client.status().await?.ping().await?;
+            let info = client.status().await?.ping().await?;
             println!(
                 "Ping succeded. Latency: {}",
                 (std::time::Instant::now() - start).fancy_duration()
             );
+            if let Some(info) = info.info {
+                println!(
+                    "System Information:\n{}",
+                    serde_json::to_string_pretty::<Info>(&info.into())?
+                );
+            }
         }
     }
 
