@@ -114,10 +114,24 @@ mod tests {
             let mut client = get_status_client(make_server(None).await.unwrap())
                 .await
                 .unwrap();
-            assert!(
-                client.ping(tonic::Request::new(())).await.is_ok(),
-                "can ping the server"
-            );
+            let results = client
+                .ping(tonic::Request::new(()))
+                .await
+                .unwrap()
+                .into_inner();
+            assert!(results.info.is_some());
+            let info = results.info.unwrap();
+            assert_ne!(info.uptime, 0);
+            assert_ne!(info.available_memory, 0);
+            assert_ne!(info.total_memory, 0);
+            assert_ne!(info.cpus, 0);
+            assert_ne!(info.cpu_usage, 0.0);
+            assert!(!info.host_name.is_empty());
+            assert!(!info.kernel_version.is_empty());
+            assert_ne!(info.load_average, [0.0, 0.0, 0.0]);
+            assert_ne!(info.processes, 0);
+            assert_eq!(info.total_disk, 0);
+            assert_eq!(info.available_disk, 0);
         }
     }
 
