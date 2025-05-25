@@ -35,8 +35,18 @@ impl Default for Info {
             kernel_version: sysinfo::System::kernel_version().unwrap_or("unknown".into()),
             load_average: la,
             processes: s.processes().len(),
-            total_disk: 0,
-            available_disk: 0,
+            total_disk: sysinfo::Disks::new_with_refreshed_list()
+                .iter()
+                .filter(|d| d.mount_point().to_str().unwrap() == "/trunk") // FIXME: make this configurable
+                .map(|d| d.total_space())
+                .reduce(|a, e| a + e)
+                .unwrap(),
+            available_disk: sysinfo::Disks::new_with_refreshed_list()
+                .iter()
+                .filter(|d| d.mount_point().to_str().unwrap() == "/trunk") // FIXME: make this configurable
+                .map(|d| d.available_space())
+                .reduce(|a, e| a + e)
+                .unwrap(),
         }
     }
 }
@@ -96,7 +106,7 @@ mod tests {
         assert!(!info.kernel_version.is_empty());
         assert_ne!(info.load_average, [0.0, 0.0, 0.0]);
         assert_ne!(info.processes, 0);
-        assert_eq!(info.total_disk, 0);
-        assert_eq!(info.available_disk, 0);
+        assert_ne!(info.total_disk, 0);
+        assert_ne!(info.available_disk, 0);
     }
 }
