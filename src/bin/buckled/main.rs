@@ -8,5 +8,10 @@ pub async fn main() -> Result<(), anyhow::Error> {
         Config::default()
     };
 
-    Ok(Server::new_with_config(Some(config)).start()?.await?)
+    if let Err(e) = Server::new_with_config(Some(config)).start()?.await {
+        tracing::error!("Error while running service: {}", e.to_string());
+        return Err(e.into());
+    }
+
+    Ok(())
 }

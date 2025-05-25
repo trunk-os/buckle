@@ -8,6 +8,8 @@ use crate::{
     sysinfo::Info,
 };
 use tonic::{transport::Server as TransportServer, Request, Response, Result};
+use tonic_middleware::MiddlewareLayer;
+use tracing::info;
 
 // FIXME needs a way to shut down
 #[derive(Debug, Default, Clone)]
@@ -27,9 +29,11 @@ impl Server {
         &self,
     ) -> anyhow::Result<impl std::future::Future<Output = Result<(), tonic::transport::Error>>>
     {
+        info!("Starting service.");
         let uds = tokio::net::UnixListener::bind(self.config.socket.clone())?;
         let uds_stream = tokio_stream::wrappers::UnixListenerStream::new(uds);
         Ok(TransportServer::builder()
+            .layer(MiddlewareLayer::new(crate::middleware::LogMiddleware))
             .add_service(StatusServer::new(self.clone()))
             .add_service(ZfsServer::new(self.clone()))
             .serve_with_incoming(uds_stream))

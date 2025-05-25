@@ -1,6 +1,7 @@
 pub mod client;
 pub mod config;
 pub(crate) mod grpc;
+pub(crate) mod middleware;
 pub mod server;
 pub(crate) mod sysinfo;
 pub(crate) mod zfs;

@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 tokio = { version = "*", features = [ "full" ] }
 tonic = "*"
+tonic-middleware = "*"
 prost = "*"
 clap = { version = "*", features = [ "derive" ] }
 anyhow = "*"
@@ -16,6 +17,8 @@ serde_json = "*"
 tokio-stream = "*"
 tempfile = { version = "*", optional = true }
 sysinfo = { version = "*", features = [ "default", "linux-netdevs", "linux-tmpfs" ] }
+tracing = { version = "*", features = [ "log" ] }
+tracing-subscriber = "*"
 
 [build-dependencies]
 tonic-build = "*"
