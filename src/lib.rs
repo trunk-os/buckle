@@ -2,6 +2,7 @@ pub mod client;
 pub mod config;
 pub(crate) mod grpc;
 pub mod server;
+pub(crate) mod sysinfo;
 pub(crate) mod zfs;
 
 // dirty af but it works
