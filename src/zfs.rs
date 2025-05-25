@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::grpc::{
     ZfsDataset, ZfsEntry, ZfsList, ZfsModifyDataset, ZfsModifyVolume, ZfsType, ZfsVolume,
 };
