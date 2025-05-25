@@ -12,6 +12,7 @@ anyhow = "*"
 fancy-duration = "*"
 serde = { version = "*", features = [ "derive" ] }
 serde_yaml_ng = "*"
+serde_json = "*"
 tokio-stream = "*"
 tempfile = { version = "*", optional = true }
 

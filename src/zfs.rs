@@ -55,6 +55,66 @@ pub struct ZFSStat {
     // FIXME collect options (like quotas)
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ZFSOutputInfo {
+    command: String,
+    vers_major: u64,
+    vers_minor: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ZFSGet<T> {
+    output_version: ZFSOutputInfo,
+    datasets: HashMap<String, ZFSGetItem<T>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ZFSGetItem<T> {
+    name: String,
+    #[serde(rename = "type")]
+    typ: String,
+    pool: String,
+    createtxg: u64,
+    properties: HashMap<String, ZFSValue<T>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ZFSList {
+    output_version: ZFSOutputInfo,
+    datasets: HashMap<String, ZFSListItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ZFSListItem {
+    name: String,
+    #[serde(rename = "type")]
+    typ: String,
+    pool: String,
+    createtxg: u64,
+    properties: ZFSListItemProperties,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ZFSListItemProperties {
+    used: ZFSValue<u64>,
+    available: ZFSValue<u64>,
+    referenced: ZFSValue<u64>,
+    mountpoint: ZFSValue<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ZFSValue<T> {
+    value: T,
+    source: ZFSSource,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ZFSSource {
+    #[serde(rename = "type")]
+    typ: String,
+    data: String,
+}
+
 impl From<ModifyVolume> for ZfsModifyVolume {
     fn from(value: ModifyVolume) -> Self {
         Self {
@@ -251,40 +311,10 @@ impl Pool {
 
     pub fn list(&self, filter: Option<String>) -> Result<Vec<ZFSStat>> {
         let mut ret = Vec::new();
-        let list_output = self.controller.list()?;
-        let lines = list_output.split('\n');
-        for line in lines.skip(1) {
-            if line.is_empty() {
-                continue;
-            }
-
-            let mut name = String::new();
-            let mut used = String::new();
-            let mut avail = String::new();
-            let mut refer = String::new();
-
-            let mut tmp = String::new();
-            let mut stage = 0;
-            'line: for ch in line.chars() {
-                if ch != ' ' {
-                    tmp.push(ch)
-                } else if !tmp.is_empty() {
-                    match stage {
-                        0 => name = tmp,
-                        1 => used = tmp,
-                        2 => avail = tmp,
-                        3 => refer = tmp,
-                        _ => break 'line,
-                    };
-                    stage += 1;
-                    tmp = String::new();
-                }
-            }
-
-            let mountpoint = tmp;
-
+        let list = self.controller.list()?;
+        for (name, item) in list.datasets {
             if let Some(filter) = &filter {
-                if !name.starts_with(&format!("{}/{}", self.name, filter)) {
+                if !item.name.starts_with(&format!("{}/{}", self.name, filter)) {
                     continue;
                 }
             }
@@ -308,17 +338,17 @@ impl Pool {
                 // FIXME relying on datasets being mounted is a thing we're doing right now, it'll
                 //       probably have to change eventually, but zfs handles all the mounting for
                 //       us at create and destroy time.
-                kind: if mountpoint == "-" {
+                kind: if item.typ == "VOLUME" {
                     ZFSKind::Volume
                 } else {
                     ZFSKind::Dataset
                 },
                 full_name: name.clone(),
                 name: short_name.clone(), // strip the pool
-                used: used.parse()?,
-                avail: avail.parse()?,
+                used: item.properties.used.value,
+                avail: item.properties.available.value,
                 // this is just easier to use in places
-                size: if mountpoint == "-" {
+                size: if item.typ == "VOLUME" {
                     self.controller.get(&self.name, &short_name, "volsize")?
                 } else {
                     let quota = self
@@ -332,11 +362,11 @@ impl Pool {
                         self.controller.get(&self.name, &short_name, "available")?
                     }
                 },
-                refer: refer.parse()?,
-                mountpoint: if mountpoint == "-" {
+                refer: item.properties.referenced.value,
+                mountpoint: if item.properties.mountpoint.value == "-" {
                     None
                 } else {
-                    Some(mountpoint.to_string())
+                    Some(item.properties.mountpoint.value)
                 },
             })
         }
@@ -392,8 +422,15 @@ impl Controller {
         }
     }
 
-    fn list(&self) -> Result<String> {
-        Self::run("zfs", vec!["list".to_string(), "-p".to_string()])
+    fn list(&self) -> Result<ZFSList> {
+        Ok(serde_json::from_str(&Self::run(
+            "zfs",
+            vec![
+                "list".to_string(),
+                "-j".to_string(),
+                "--json-int".to_string(),
+            ],
+        )?)?)
     }
 
     fn destroy(&self, pool: &str, name: &str) -> Result<()> {
@@ -451,38 +488,24 @@ impl Controller {
 
     fn get<T>(&self, pool: &str, name: &str, property: &str) -> Result<T>
     where
-        T: FromStr + Send + Sync,
+        T: for<'de> serde::Deserialize<'de> + FromStr + Send + Sync + Clone,
         T::Err: ToString,
     {
         let args = vec![
             "get".to_string(),
-            "-p".to_string(),
+            "-j".to_string(),
+            "--json-int".to_string(),
             property.to_string(),
             format!("{}/{}", pool, name),
         ];
-        let out = Self::run("zfs", args)?;
-        let line = out.lines().skip(1).next().unwrap();
-        let mut value = String::new();
 
-        let mut tmp = String::new();
-        let mut stage = 0;
-        'line: for ch in line.chars() {
-            if ch != ' ' {
-                tmp.push(ch)
-            } else if !tmp.is_empty() {
-                match stage {
-                    0 | 1 => {}
-                    2 => value = tmp,
-                    _ => break 'line,
-                };
-                stage += 1;
-                tmp = String::new();
-            }
-        }
+        let out: ZFSGet<T> = serde_json::from_str(&Self::run("zfs", args)?)?;
 
-        Ok(value
-            .parse()
-            .map_err(|e: <T as FromStr>::Err| anyhow!(e.to_string()))?)
+        Ok(
+            out.datasets[&format!("{}/{}", pool, name)].properties[property]
+                .value
+                .clone(),
+        )
     }
 
     fn create_volume(
