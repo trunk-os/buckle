@@ -6,17 +6,17 @@ use crate::grpc::SystemInfo;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Info {
-    uptime: u64,            // in seconds
-    available_memory: u64,  // bytes
-    total_memory: u64,      // bytes
-    cpus: usize,            // count of cpus
-    cpu_usage: f32,         // percentage
-    host_name: String,      // short name
-    kernel_version: String, // only the version string
-    load_average: [f64; 3], // 1, 5, 15 min
-    processes: usize,       // just the count
-    total_disk: u64,        // bytes
-    available_disk: u64,    // bytes
+    pub uptime: u64,            // in seconds
+    pub available_memory: u64,  // bytes
+    pub total_memory: u64,      // bytes
+    pub cpus: usize,            // count of cpus
+    pub cpu_usage: f32,         // percentage
+    pub host_name: String,      // short name
+    pub kernel_version: String, // only the version string
+    pub load_average: [f64; 3], // 1, 5, 15 min
+    pub processes: usize,       // just the count
+    pub total_disk: u64,        // bytes
+    pub available_disk: u64,    // bytes
 }
 
 impl Default for Info {
