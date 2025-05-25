@@ -55,6 +55,50 @@ pub struct ZFSStat {
     // FIXME collect options (like quotas)
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ZFSOutputInfo {
+    command: String,
+    vers_major: u64,
+    vers_minor: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ZFSList {
+    output_version: ZFSOutputInfo,
+    datasets: HashMap<String, ZFSListItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ZFSListItem {
+    name: String,
+    #[serde(rename = "type")]
+    typ: String,
+    pool: String,
+    createtxg: u64,
+    properties: ZFSListItemProperties,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ZFSListItemProperties {
+    used: ZFSValue<u64>,
+    available: ZFSValue<u64>,
+    referenced: ZFSValue<u64>,
+    mountpoint: ZFSValue<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ZFSValue<T> {
+    value: T,
+    source: ZFSSource,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ZFSSource {
+    #[serde(rename = "type")]
+    typ: String,
+    data: String,
+}
+
 impl From<ModifyVolume> for ZfsModifyVolume {
     fn from(value: ModifyVolume) -> Self {
         Self {
