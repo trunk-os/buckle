@@ -63,6 +63,22 @@ pub struct ZFSOutputInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ZFSGet<T> {
+    output_version: ZFSOutputInfo,
+    datasets: HashMap<String, ZFSGetItem<T>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ZFSGetItem<T> {
+    name: String,
+    #[serde(rename = "type")]
+    typ: String,
+    pool: String,
+    createtxg: u64,
+    properties: HashMap<String, ZFSValue<T>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ZFSList {
     output_version: ZFSOutputInfo,
     datasets: HashMap<String, ZFSListItem>,
@@ -472,38 +488,24 @@ impl Controller {
 
     fn get<T>(&self, pool: &str, name: &str, property: &str) -> Result<T>
     where
-        T: FromStr + Send + Sync,
+        T: for<'de> serde::Deserialize<'de> + FromStr + Send + Sync + Clone,
         T::Err: ToString,
     {
         let args = vec![
             "get".to_string(),
-            "-p".to_string(),
+            "-j".to_string(),
+            "--json-int".to_string(),
             property.to_string(),
             format!("{}/{}", pool, name),
         ];
-        let out = Self::run("zfs", args)?;
-        let line = out.lines().skip(1).next().unwrap();
-        let mut value = String::new();
 
-        let mut tmp = String::new();
-        let mut stage = 0;
-        'line: for ch in line.chars() {
-            if ch != ' ' {
-                tmp.push(ch)
-            } else if !tmp.is_empty() {
-                match stage {
-                    0 | 1 => {}
-                    2 => value = tmp,
-                    _ => break 'line,
-                };
-                stage += 1;
-                tmp = String::new();
-            }
-        }
+        let out: ZFSGet<T> = serde_json::from_str(&Self::run("zfs", args)?)?;
 
-        Ok(value
-            .parse()
-            .map_err(|e: <T as FromStr>::Err| anyhow!(e.to_string()))?)
+        Ok(
+            out.datasets[&format!("{}/{}", pool, name)].properties[property]
+                .value
+                .clone(),
+        )
     }
 
     fn create_volume(
