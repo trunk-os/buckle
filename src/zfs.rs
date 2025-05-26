@@ -549,6 +549,10 @@ impl Controller {
     }
 
     fn set(&self, pool: &str, name: &str, properties: HashMap<&str, String>) -> Result<()> {
+        if properties.is_empty() {
+            return Ok(());
+        }
+
         let mut args = vec!["set".to_string()];
 
         for (key, value) in &properties {
