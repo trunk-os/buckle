@@ -270,6 +270,8 @@ impl Pool {
             return Err(e);
         }
 
+        self.controller.mount(&self.name)?;
+
         Ok(())
     }
 
@@ -296,6 +298,8 @@ impl Pool {
         }
 
         if info.modifications.name != "" && info.name != info.modifications.name {
+            self.controller.unmount(&self.name, &info.name)?;
+
             if let Err(e) = self
                 .controller
                 .rename(&self.name, &info.name, &info.modifications.name)
@@ -303,6 +307,8 @@ impl Pool {
                 error!("Renaming dataset: {}", e.to_string());
                 return Err(e);
             }
+
+            self.controller.mount(&self.name)?;
         }
 
         Ok(())
@@ -502,7 +508,11 @@ impl Controller {
     fn destroy(&self, pool: &str, name: &str) -> Result<()> {
         Self::run(
             "zfs",
-            vec!["destroy".to_string(), format!("{}/{}", pool, name)],
+            vec![
+                "destroy".to_string(),
+                "-f".to_string(),
+                format!("{}/{}", pool, name),
+            ],
         )?;
         Ok(())
     }
@@ -535,7 +545,6 @@ impl Controller {
         .collect();
 
         Self::run("zfs", args)?;
-
         Ok(())
     }
 
@@ -572,6 +581,28 @@ impl Controller {
                 .value
                 .clone(),
         )
+    }
+
+    fn mount(&self, pool: &str) -> Result<()> {
+        Self::run(
+            "zfs",
+            vec!["mount", "-R", pool]
+                .iter()
+                .map(|x| x.to_string())
+                .collect::<Vec<String>>(),
+        )?;
+        Ok(())
+    }
+
+    fn unmount(&self, pool: &str, name: &str) -> Result<()> {
+        Self::run(
+            "zfs",
+            vec!["unmount", "-f", &format!("{}/{}", pool, name)]
+                .iter()
+                .map(|x| x.to_string())
+                .collect::<Vec<String>>(),
+        )?;
+        Ok(())
     }
 
     fn create_volume(
