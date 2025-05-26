@@ -30,6 +30,11 @@ impl Server {
     ) -> anyhow::Result<impl std::future::Future<Output = Result<(), tonic::transport::Error>>>
     {
         info!("Starting service.");
+
+        if let Some(parent) = self.config.socket.to_path_buf().parent() {
+            std::fs::create_dir_all(&parent)?;
+        }
+
         if std::fs::exists(&self.config.socket)? {
             std::fs::remove_file(&self.config.socket)?;
         }
