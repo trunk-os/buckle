@@ -21,7 +21,8 @@ pub const DEFAULT_CONFIG: LazyLock<crate::config::Config> =
 pub fn find_listener() -> Result<std::path::PathBuf> {
     std::fs::create_dir_all("tmp/sockets")?;
     let file = NamedTempFile::new_in("tmp/sockets")?;
-    Ok(file.path().to_path_buf())
+    let (_, path) = file.keep()?;
+    Ok(path)
 }
 
 pub async fn make_server(config: Option<crate::config::Config>) -> Result<std::path::PathBuf> {
