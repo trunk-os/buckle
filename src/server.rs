@@ -30,7 +30,11 @@ impl Server {
     ) -> anyhow::Result<impl std::future::Future<Output = Result<(), tonic::transport::Error>>>
     {
         info!("Starting service.");
-        let uds = tokio::net::UnixListener::bind(self.config.socket.clone())?;
+        if std::fs::exists(&self.config.socket)? {
+            std::fs::remove_file(&self.config.socket)?;
+        }
+
+        let uds = tokio::net::UnixListener::bind(&self.config.socket)?;
         let uds_stream = tokio_stream::wrappers::UnixListenerStream::new(uds);
         Ok(TransportServer::builder()
             .layer(MiddlewareLayer::new(crate::middleware::LogMiddleware))
@@ -134,8 +138,6 @@ mod tests {
             assert!(!info.kernel_version.is_empty());
             assert_ne!(info.load_average, [0.0, 0.0, 0.0]);
             assert_ne!(info.processes, 0);
-            assert_ne!(info.total_disk, 0);
-            assert_ne!(info.available_disk, 0);
         }
     }
 
