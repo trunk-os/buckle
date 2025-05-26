@@ -1,3 +1,5 @@
+use std::{fs::Permissions, os::unix::fs::PermissionsExt};
+
 use crate::{
     grpc::{
         status_server::{Status, StatusServer},
@@ -41,6 +43,9 @@ impl Server {
 
         let uds = tokio::net::UnixListener::bind(&self.config.socket)?;
         let uds_stream = tokio_stream::wrappers::UnixListenerStream::new(uds);
+
+        std::fs::set_permissions(&self.config.socket, Permissions::from_mode(0o600))?;
+
         Ok(TransportServer::builder()
             .layer(MiddlewareLayer::new(crate::middleware::LogMiddleware))
             .add_service(StatusServer::new(self.clone()))
