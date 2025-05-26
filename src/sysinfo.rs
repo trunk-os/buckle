@@ -39,13 +39,13 @@ impl Default for Info {
             processes: s.processes().len(),
             total_disk: sysinfo::Disks::new_with_refreshed_list()
                 .iter()
-                .filter(|d| d.mount_point().to_str().unwrap() == "/trunk") // FIXME: make this configurable
+                .filter(|d| d.name().to_string_lossy().starts_with("trunk"))
                 .map(|d| d.total_space())
                 .reduce(|a, e| a + e)
                 .unwrap_or_default(),
             available_disk: sysinfo::Disks::new_with_refreshed_list()
                 .iter()
-                .filter(|d| d.mount_point().to_str().unwrap() == "/trunk") // FIXME: make this configurable
+                .filter(|d| d.name().to_string_lossy().starts_with("trunk"))
                 .map(|d| d.available_space())
                 .reduce(|a, e| a + e)
                 .unwrap_or_default(),
