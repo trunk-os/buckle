@@ -485,7 +485,7 @@ impl Controller {
         );
 
         if out.status.success() {
-            Ok(String::from_utf8(out.stdout)?)
+            Ok(String::from_utf8(out.stdout.trim_ascii().to_vec())?)
         } else {
             Err(anyhow!(
                 "Error: {}",
