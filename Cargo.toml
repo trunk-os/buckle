@@ -19,7 +19,7 @@ tempfile = { version = "*", optional = true }
 sysinfo = { version = "*", features = [ "default", "linux-netdevs", "linux-tmpfs" ] }
 tracing = { version = "*", features = [ "log" ] }
 tracing-subscriber = "*"
-zbus_systemd = "*"
+zbus_systemd = { version = "*", features = [ "systemd1" ] }
 
 [build-dependencies]
 tonic-build = "*"

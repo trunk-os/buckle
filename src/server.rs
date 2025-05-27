@@ -124,6 +124,7 @@ impl Zfs for Server {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "zfs")]
     mod status {
         use crate::testutil::{get_status_client, make_server};
 
