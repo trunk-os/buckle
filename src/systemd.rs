@@ -31,7 +31,7 @@ impl ToString for RuntimeState {
 impl std::str::FromStr for RuntimeState {
     type Err = anyhow::Error;
 
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self> {
         Ok(match s {
             "started" => Self::Started,
             "stopped" => Self::Stopped,
@@ -61,7 +61,7 @@ impl ToString for EnabledState {
 impl std::str::FromStr for EnabledState {
     type Err = anyhow::Error;
 
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self> {
         Ok(match s {
             "enabled" => Self::Enabled,
             "disabled" => Self::Disabled,
