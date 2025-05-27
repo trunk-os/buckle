@@ -59,7 +59,7 @@ message ZFSEntry {
            uint64  used      = 5;
            uint64  avail     = 6;
            uint64  refer     = 7;
-  optional string mountpoint = 8;
+  optional string  mountpoint = 8;
 }
 
 message ZFSDataset {
@@ -73,10 +73,37 @@ message ZFSVolume {
 }
 
 service ZFS {
-  rpc List (ZFSListFilter)            returns (ZFSList);
+  rpc List(ZFSListFilter)             returns (ZFSList);
   rpc CreateDataset(ZFSDataset)       returns (google.protobuf.Empty);
   rpc CreateVolume(ZFSVolume)         returns (google.protobuf.Empty);
   rpc ModifyDataset(ZFSModifyDataset) returns (google.protobuf.Empty);
   rpc ModifyVolume(ZFSModifyVolume)   returns (google.protobuf.Empty);
   rpc Destroy(ZFSName)                returns (google.protobuf.Empty);
+}
+
+enum UnitRuntimeState {
+  Started   = 0;
+  Stopped   = 1;
+  Restarted = 2;
+  Reloaded  = 3;
+}
+
+enum UnitEnabledState {
+  Enabled  = 0;
+  Disabled = 1;
+}
+
+message UnitSettings {
+  string           name          = 1;
+  UnitRuntimeState runtime_state = 2;
+  UnitEnabledState enabled_state = 3;
+}
+
+message UnitList {
+  repeated UnitSettings items = 1;
+}
+
+service Systemd {
+  rpc SetUnit(UnitSettings)       returns (google.protobuf.Empty);
+  rpc List(google.protobuf.Empty) returns (UnitList);
 }
