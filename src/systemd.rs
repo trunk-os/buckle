@@ -1,12 +1,10 @@
 #![allow(dead_code)]
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use zbus_systemd::{systemd1::ManagerProxy, zbus::connection::Connection};
-
-#[derive(Debug, Clone)]
-pub(crate) struct Systemd {
-    client: Connection,
-}
+use zbus_systemd::{
+    systemd1::{ManagerProxy, UnitProxy},
+    zbus::connection::Connection,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub enum LastRunState {
@@ -142,24 +140,58 @@ pub struct Unit {
     pub last_run_state: LastRunState,
     pub enabled_state: EnabledState,
     pub runtime_state: RuntimeState,
+    pub object_path: String,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct Systemd {
+    client: Connection,
+    manager: ManagerProxy<'static>,
 }
 
 impl Systemd {
-    pub async fn new_session() -> Result<Self> {
+    pub async fn new(client: Connection) -> Result<Self> {
         Ok(Self {
-            client: Connection::session().await?,
+            manager: ManagerProxy::new(&client).await?,
+            client,
         })
+    }
+
+    pub async fn new_session() -> Result<Self> {
+        Self::new(Connection::session().await?).await
     }
 
     pub async fn new_system() -> Result<Self> {
-        Ok(Self {
-            client: Connection::system().await?,
-        })
+        Self::new(Connection::system().await?).await
+    }
+
+    pub async fn start(&self, name: String) -> Result<()> {
+        self.manager.start_unit(name, "fail".into()).await?;
+        Ok(())
+    }
+
+    pub async fn stop(&self, name: String) -> Result<()> {
+        self.manager.stop_unit(name, "fail".into()).await?;
+        Ok(())
+    }
+
+    pub async fn restart(&self, name: String) -> Result<()> {
+        self.manager.restart_unit(name, "fail".into()).await?;
+        Ok(())
+    }
+
+    pub async fn reload(&self, name: String) -> Result<()> {
+        self.manager.reload_unit(name, "fail".into()).await?;
+        Ok(())
+    }
+
+    pub async fn status(&self, name: String) -> Result<RuntimeState> {
+        let service = UnitProxy::new(&self.client, name).await?;
+        Ok(service.active_state().await?.parse()?)
     }
 
     pub async fn list(&self) -> Result<Vec<Unit>> {
-        let manager = ManagerProxy::new(&self.client).await?;
-        let list = manager.list_units().await?;
+        let list = self.manager.list_units().await?;
         let mut v = Vec::new();
         for item in list {
             let name = item.0;
@@ -176,6 +208,7 @@ impl Systemd {
                 enabled_state,
                 runtime_state,
                 last_run_state,
+                object_path: item.6.to_string(),
             })
         }
         Ok(v)
@@ -184,17 +217,38 @@ impl Systemd {
 
 #[cfg(test)]
 mod tests {
-    use crate::systemd::{LastRunState, Systemd};
+    use crate::systemd::{LastRunState, RuntimeState, Systemd};
+
+    #[tokio::test]
+    async fn test_status() {
+        let systemd = Systemd::new_system().await.unwrap();
+        let list = systemd.list().await.unwrap();
+        let mut op = None;
+        for item in list {
+            // this should be running on any system that tests with zfs
+            if item.name == "zfs-import.target" {
+                op = Some(item.object_path)
+            }
+        }
+        assert!(op.is_some(), "did not find item in systemd to check");
+        let op = op.unwrap();
+
+        let status = systemd.status(op).await.unwrap();
+        assert_eq!(status, RuntimeState::Started);
+    }
 
     #[tokio::test]
     async fn test_list() {
         let systemd = Systemd::new_system().await.unwrap();
         let list = systemd.list().await.unwrap();
+        let mut found = false;
         for item in list {
             // on any sane system this should be running
-            if item.name == "default.target" {
-                assert_eq!(item.last_run_state, LastRunState::Running);
+            if item.name == "zfs-import.target" {
+                assert_eq!(item.last_run_state, LastRunState::Active);
+                found = true;
             }
         }
+        assert!(found, "did not find item in systemd to check")
     }
 }
