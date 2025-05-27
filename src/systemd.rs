@@ -137,10 +137,15 @@ pub struct UnitSettings {
 pub struct Unit {
     pub name: String,
     pub description: String,
-    pub last_run_state: LastRunState,
     pub enabled_state: EnabledState,
-    pub runtime_state: RuntimeState,
     pub object_path: String,
+    pub status: Status,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+pub struct Status {
+    pub runtime_state: RuntimeState,
+    pub last_run_state: LastRunState,
 }
 
 #[derive(Debug, Clone)]
@@ -185,9 +190,13 @@ impl Systemd {
         Ok(())
     }
 
-    pub async fn status(&self, name: String) -> Result<RuntimeState> {
+    pub async fn status(&self, name: String) -> Result<Status> {
         let service = UnitProxy::new(&self.client, name).await?;
-        Ok(service.active_state().await?.parse()?)
+
+        Ok(Status {
+            runtime_state: service.active_state().await?.parse()?,
+            last_run_state: service.sub_state().await?.parse()?,
+        })
     }
 
     pub async fn list(&self) -> Result<Vec<Unit>> {
@@ -206,8 +215,10 @@ impl Systemd {
                 name,
                 description,
                 enabled_state,
-                runtime_state,
-                last_run_state,
+                status: Status {
+                    runtime_state,
+                    last_run_state,
+                },
                 object_path: item.6.to_string(),
             })
         }
@@ -234,7 +245,8 @@ mod tests {
         let op = op.unwrap();
 
         let status = systemd.status(op).await.unwrap();
-        assert_eq!(status, RuntimeState::Started);
+        assert_eq!(status.runtime_state, RuntimeState::Started);
+        assert_eq!(status.last_run_state, LastRunState::Active);
     }
 
     #[tokio::test]
@@ -245,7 +257,7 @@ mod tests {
         for item in list {
             // on any sane system this should be running
             if item.name == "zfs-import.target" {
-                assert_eq!(item.last_run_state, LastRunState::Active);
+                assert_eq!(item.status.last_run_state, LastRunState::Active);
                 found = true;
             }
         }
