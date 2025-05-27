@@ -489,7 +489,7 @@ impl Controller {
         } else {
             Err(anyhow!(
                 "Error: {}",
-                String::from_utf8(out.stderr)?.as_str()
+                String::from_utf8(out.stderr.trim_ascii().to_vec())?.as_str()
             ))
         }
     }
