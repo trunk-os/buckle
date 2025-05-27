@@ -4,6 +4,7 @@ pub(crate) mod grpc;
 pub(crate) mod middleware;
 pub mod server;
 pub(crate) mod sysinfo;
+pub(crate) mod systemd;
 pub(crate) mod zfs;
 
 // dirty af but it works
