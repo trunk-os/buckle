@@ -255,7 +255,6 @@ mod tests {
         let list = systemd.list().await.unwrap();
         let mut found = false;
         for item in list {
-            // on any sane system this should be running
             if item.name == "zfs-import.target" {
                 assert_eq!(item.status.last_run_state, LastRunState::Active);
                 found = true;
