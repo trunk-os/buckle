@@ -9,9 +9,10 @@ pub use crate::{
     zfs::{Dataset, ModifyDataset, ModifyVolume, Volume, ZFSStat},
 };
 
-use anyhow::Result;
 use std::path::PathBuf;
 use tonic::{transport::Channel, Request};
+
+type Result<T> = std::result::Result<T, tonic::Status>;
 
 #[derive(Debug, Clone)]
 pub struct Client {
@@ -27,17 +28,17 @@ pub struct ZFSClient {
 }
 
 impl Client {
-    pub fn new(socket: PathBuf) -> Result<Self> {
+    pub fn new(socket: PathBuf) -> anyhow::Result<Self> {
         Ok(Self { socket })
     }
 
-    pub async fn status(&self) -> Result<StatusClient> {
+    pub async fn status(&self) -> anyhow::Result<StatusClient> {
         let client =
             GRPCStatusClient::connect(format!("unix://{}", self.socket.to_str().unwrap())).await?;
         Ok(StatusClient { client })
     }
 
-    pub async fn zfs(&self) -> Result<ZFSClient> {
+    pub async fn zfs(&self) -> anyhow::Result<ZFSClient> {
         let client =
             GRPCZfsClient::connect(format!("unix://{}", self.socket.to_str().unwrap())).await?;
         Ok(ZFSClient { client })
