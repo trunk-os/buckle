@@ -339,7 +339,6 @@ impl Pool {
     }
 
     pub fn destroy(&self, name: String) -> Result<()> {
-        let _ = self.controller.unmount(&self.name, &name);
         if let Err(e) = self.controller.destroy(&self.name, &name) {
             error!("Destroying dataset: {}", e.to_string());
             return Err(e);
