@@ -7,7 +7,7 @@ edition = "2024"
 tokio = { version = "*", features = [ "full" ] }
 tonic = "*"
 tonic-middleware = "*"
-prost = "*"
+prost = "^0.13"
 clap = { version = "*", features = [ "derive" ] }
 anyhow = "*"
 fancy-duration = "*"
