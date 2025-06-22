@@ -20,21 +20,23 @@ pub enum LastRunState {
     Unknown(String),
 }
 
-impl ToString for LastRunState {
-    fn to_string(&self) -> String {
-        match self {
-            Self::Failed => "failed",
-            Self::Active => "active",
-            Self::Dead => "dead",
-            Self::Mounted => "mounted",
-            Self::Running => "running",
-            Self::Listening => "listening",
-            Self::Plugged => "plugged",
-            Self::Exited => "exited",
-            Self::Waiting => "waiting",
-            Self::Unknown(s) => &s,
-        }
-        .into()
+impl std::fmt::Display for LastRunState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(
+            match self {
+                Self::Failed => "failed",
+                Self::Active => "active",
+                Self::Dead => "dead",
+                Self::Mounted => "mounted",
+                Self::Running => "running",
+                Self::Listening => "listening",
+                Self::Plugged => "plugged",
+                Self::Exited => "exited",
+                Self::Waiting => "waiting",
+                Self::Unknown(s) => &s,
+            }
+            .into(),
+        )
     }
 }
 
@@ -66,16 +68,18 @@ pub enum RuntimeState {
     Unknown(String),
 }
 
-impl ToString for RuntimeState {
-    fn to_string(&self) -> String {
-        match self {
-            Self::Started => "started",
-            Self::Stopped => "stopped",
-            Self::Restarted => "restarted",
-            Self::Reloaded => "reloaded",
-            Self::Unknown(s) => &s,
-        }
-        .into()
+impl std::fmt::Display for RuntimeState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(
+            match self {
+                Self::Started => "started",
+                Self::Stopped => "stopped",
+                Self::Restarted => "restarted",
+                Self::Reloaded => "reloaded",
+                Self::Unknown(s) => &s,
+            }
+            .into(),
+        )
     }
 }
 
@@ -101,15 +105,17 @@ pub enum EnabledState {
     Unknown(String),
 }
 
-impl ToString for EnabledState {
-    fn to_string(&self) -> String {
-        match self {
-            Self::Enabled => "enabled",
-            Self::Disabled => "disabled",
-            Self::Failed => "failed",
-            Self::Unknown(s) => &s,
-        }
-        .into()
+impl std::fmt::Display for EnabledState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(
+            match self {
+                Self::Enabled => "enabled",
+                Self::Disabled => "disabled",
+                Self::Failed => "failed",
+                Self::Unknown(s) => &s,
+            }
+            .into(),
+        )
     }
 }
 

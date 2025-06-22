@@ -91,6 +91,7 @@ enum UnitRuntimeState {
 enum UnitEnabledState {
   Enabled  = 0;
   Disabled = 1;
+  Failed   = 2;
 }
 
 message UnitSettings {
