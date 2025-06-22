@@ -2,10 +2,10 @@ use crate::{
     grpc::{
         status_client::StatusClient as GRPCStatusClient,
         systemd_client::SystemdClient as GRPCSystemdClient, zfs_client::ZfsClient as GRPCZfsClient,
-        PingResult, UnitEnabledState, UnitRuntimeState, UnitSettings as GRPCUnitSettings,
+        GrpcUnitSettings, PingResult, UnitEnabledState, UnitListFilter, UnitRuntimeState,
         ZfsListFilter, ZfsName,
     },
-    systemd::{EnabledState, RuntimeState, UnitSettings},
+    systemd::{Unit, UnitSettings},
 };
 // we expose these types we should serve them
 pub use crate::{
@@ -59,58 +59,25 @@ impl Client {
 }
 
 impl SystemdClient {
-    pub async fn list(&mut self) -> Result<Vec<UnitSettings>> {
-        let units = self.client.list(Request::new(())).await?.into_inner();
+    pub async fn list(&mut self, filter: Option<String>) -> Result<Vec<Unit>> {
+        let filter = UnitListFilter {
+            filter: filter.unwrap_or_default(),
+        };
+
+        let units = self.client.list(Request::new(filter)).await?.into_inner();
         let mut v = Vec::new();
-        for unit in &units.items {
-            let u = UnitSettings {
-                name: unit.name.to_string(),
-                enabled_state: match unit.enabled_state() {
-                    UnitEnabledState::Enabled => EnabledState::Enabled,
-                    UnitEnabledState::Disabled => EnabledState::Disabled,
-                    UnitEnabledState::Failed => EnabledState::Failed,
-                },
-                runtime_state: match unit.runtime_state() {
-                    UnitRuntimeState::Started => RuntimeState::Started,
-                    UnitRuntimeState::Stopped => RuntimeState::Stopped,
-                    UnitRuntimeState::Reloaded => RuntimeState::Reloaded,
-                    UnitRuntimeState::Restarted => RuntimeState::Restarted,
-                },
-            };
-            v.push(u)
+        for unit in units.items {
+            v.push(unit.into())
         }
 
         Ok(v)
     }
 
     pub async fn set_unit(&mut self, unit: UnitSettings) -> Result<()> {
-        let out = GRPCUnitSettings {
+        let out = GrpcUnitSettings {
             name: unit.name,
-            enabled_state: match unit.enabled_state {
-                EnabledState::Enabled => UnitEnabledState::Enabled,
-                EnabledState::Disabled => UnitEnabledState::Disabled,
-                EnabledState::Failed => UnitEnabledState::Failed,
-                _ => {
-                    return Err(tonic::Status::new(
-                        tonic::Code::Internal,
-                        format!("Invalid state '{}'", unit.enabled_state),
-                    ))
-                }
-            }
-            .into(),
-            runtime_state: match unit.runtime_state {
-                RuntimeState::Started => UnitRuntimeState::Started,
-                RuntimeState::Stopped => UnitRuntimeState::Stopped,
-                RuntimeState::Reloaded => UnitRuntimeState::Reloaded,
-                RuntimeState::Restarted => UnitRuntimeState::Restarted,
-                _ => {
-                    return Err(tonic::Status::new(
-                        tonic::Code::Internal,
-                        format!("Invalid state '{}'", unit.enabled_state),
-                    ))
-                }
-            }
-            .into(),
+            enabled_state: Into::<UnitEnabledState>::into(unit.enabled_state).into(),
+            runtime_state: Into::<UnitRuntimeState>::into(unit.runtime_state).into(),
         };
         self.client.set_unit(Request::new(out)).await?;
         Ok(())

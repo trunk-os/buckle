@@ -1,10 +1,12 @@
 #![allow(dead_code)]
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use zbus_systemd::{
     systemd1::{ManagerProxy, UnitProxy},
     zbus::connection::Connection,
 };
+
+use crate::grpc::{GrpcUnit, GrpcUnitStatus, UnitEnabledState, UnitLastRunState, UnitRuntimeState};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub enum LastRunState {
@@ -17,7 +19,6 @@ pub enum LastRunState {
     Exited,
     Active,
     Waiting,
-    Unknown(String),
 }
 
 impl std::fmt::Display for LastRunState {
@@ -33,7 +34,6 @@ impl std::fmt::Display for LastRunState {
                 Self::Plugged => "plugged",
                 Self::Exited => "exited",
                 Self::Waiting => "waiting",
-                Self::Unknown(s) => &s,
             }
             .into(),
         )
@@ -54,7 +54,7 @@ impl std::str::FromStr for LastRunState {
             "exited" => Self::Exited,
             "active" => Self::Active,
             "waiting" => Self::Waiting,
-            s => Self::Unknown(s.to_string()),
+            s => return Err(anyhow!("invalid state '{}'", s)),
         })
     }
 }
@@ -65,7 +65,6 @@ pub enum RuntimeState {
     Stopped,
     Restarted,
     Reloaded,
-    Unknown(String),
 }
 
 impl std::fmt::Display for RuntimeState {
@@ -76,7 +75,6 @@ impl std::fmt::Display for RuntimeState {
                 Self::Stopped => "stopped",
                 Self::Restarted => "restarted",
                 Self::Reloaded => "reloaded",
-                Self::Unknown(s) => &s,
             }
             .into(),
         )
@@ -92,7 +90,7 @@ impl std::str::FromStr for RuntimeState {
             "stopped" | "dead" | "failed" | "exited" | "waiting" => Self::Stopped,
             "restarted" => Self::Restarted,
             "reloaded" => Self::Reloaded,
-            s => Self::Unknown(s.to_string()),
+            s => return Err(anyhow!("invalid state '{}'", s)),
         })
     }
 }
@@ -102,7 +100,6 @@ pub enum EnabledState {
     Enabled,
     Disabled,
     Failed,
-    Unknown(String),
 }
 
 impl std::fmt::Display for EnabledState {
@@ -112,7 +109,6 @@ impl std::fmt::Display for EnabledState {
                 Self::Enabled => "enabled",
                 Self::Disabled => "disabled",
                 Self::Failed => "failed",
-                Self::Unknown(s) => &s,
             }
             .into(),
         )
@@ -127,7 +123,7 @@ impl std::str::FromStr for EnabledState {
             "enabled" | "active" => Self::Enabled,
             "disabled" | "inactive" => Self::Disabled,
             "failed" => Self::Failed,
-            s => Self::Unknown(s.to_string()),
+            s => return Err(anyhow!("invalid state '{}'", s)),
         })
     }
 }
@@ -137,6 +133,122 @@ pub struct UnitSettings {
     pub name: String,
     pub enabled_state: EnabledState,
     pub runtime_state: RuntimeState,
+}
+
+impl From<GrpcUnit> for Unit {
+    fn from(value: GrpcUnit) -> Self {
+        Self {
+            name: value.name.clone(),
+            description: value.description.clone(),
+            enabled_state: value.enabled_state().into(),
+            object_path: value.object_path.clone(),
+            status: value.status.unwrap_or_default().into(),
+        }
+    }
+}
+
+impl From<Unit> for GrpcUnit {
+    fn from(value: Unit) -> Self {
+        Self {
+            name: value.name.clone(),
+            description: value.description.clone(),
+            enabled_state: Into::<UnitEnabledState>::into(value.enabled_state).into(),
+            object_path: value.object_path.clone(),
+            status: Some(value.status.into()),
+        }
+    }
+}
+
+impl From<Status> for GrpcUnitStatus {
+    fn from(value: Status) -> Self {
+        Self {
+            runtime_state: Into::<UnitRuntimeState>::into(value.runtime_state).into(),
+            last_run_state: Into::<UnitLastRunState>::into(value.last_run_state).into(),
+        }
+    }
+}
+
+impl From<GrpcUnitStatus> for Status {
+    fn from(value: GrpcUnitStatus) -> Self {
+        Self {
+            runtime_state: value.runtime_state().into(),
+            last_run_state: value.last_run_state().into(),
+        }
+    }
+}
+
+impl From<EnabledState> for UnitEnabledState {
+    fn from(value: EnabledState) -> Self {
+        match value {
+            EnabledState::Failed => Self::EnabledFailed,
+            EnabledState::Disabled => Self::Disabled,
+            EnabledState::Enabled => Self::Enabled,
+        }
+    }
+}
+
+impl From<UnitEnabledState> for EnabledState {
+    fn from(value: UnitEnabledState) -> Self {
+        match value {
+            UnitEnabledState::Enabled => Self::Enabled,
+            UnitEnabledState::Disabled => Self::Disabled,
+            UnitEnabledState::EnabledFailed => Self::Failed,
+        }
+    }
+}
+
+impl From<RuntimeState> for UnitRuntimeState {
+    fn from(value: RuntimeState) -> Self {
+        match value {
+            RuntimeState::Started => Self::Started,
+            RuntimeState::Stopped => Self::Stopped,
+            RuntimeState::Reloaded => Self::Reloaded,
+            RuntimeState::Restarted => Self::Restarted,
+        }
+    }
+}
+
+impl From<UnitRuntimeState> for RuntimeState {
+    fn from(value: UnitRuntimeState) -> Self {
+        match value {
+            UnitRuntimeState::Started => Self::Started,
+            UnitRuntimeState::Stopped => Self::Stopped,
+            UnitRuntimeState::Reloaded => Self::Reloaded,
+            UnitRuntimeState::Restarted => Self::Restarted,
+        }
+    }
+}
+
+impl From<UnitLastRunState> for LastRunState {
+    fn from(value: UnitLastRunState) -> Self {
+        match value {
+            UnitLastRunState::Dead => Self::Dead,
+            UnitLastRunState::Exited => Self::Exited,
+            UnitLastRunState::Active => Self::Active,
+            UnitLastRunState::Mounted => Self::Mounted,
+            UnitLastRunState::Running => Self::Running,
+            UnitLastRunState::Plugged => Self::Plugged,
+            UnitLastRunState::Waiting => Self::Waiting,
+            UnitLastRunState::RunFailed => Self::Failed,
+            UnitLastRunState::Listening => Self::Listening,
+        }
+    }
+}
+
+impl From<LastRunState> for UnitLastRunState {
+    fn from(value: LastRunState) -> Self {
+        match value {
+            LastRunState::Dead => Self::Dead,
+            LastRunState::Exited => Self::Exited,
+            LastRunState::Active => Self::Active,
+            LastRunState::Mounted => Self::Mounted,
+            LastRunState::Running => Self::Running,
+            LastRunState::Plugged => Self::Plugged,
+            LastRunState::Waiting => Self::Waiting,
+            LastRunState::Failed => Self::RunFailed,
+            LastRunState::Listening => Self::Listening,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]

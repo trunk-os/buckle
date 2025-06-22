@@ -89,22 +89,51 @@ enum UnitRuntimeState {
 }
 
 enum UnitEnabledState {
-  Enabled  = 0;
-  Disabled = 1;
-  Failed   = 2;
+  Enabled       = 0;
+  Disabled      = 1;
+  EnabledFailed = 2;
 }
 
-message UnitSettings {
+enum UnitLastRunState {
+  RunFailed = 0;
+  Dead      = 1;
+  Mounted   = 2;
+  Running   = 3;
+  Listening = 4;
+  Plugged   = 5;
+  Exited    = 6;
+  Active    = 7;
+  Waiting   = 8;
+}
+
+message GRPCUnitStatus {
+  UnitRuntimeState runtime_state = 1;
+  UnitLastRunState last_run_state = 2;
+}
+
+message GRPCUnit {
+  string            name          = 1;
+  string            description   = 2;
+  UnitEnabledState  enabled_state = 3;
+  string            object_path   = 4;
+  GRPCUnitStatus    status        = 5;
+}
+
+message GRPCUnitSettings {
   string           name          = 1;
   UnitRuntimeState runtime_state = 2;
   UnitEnabledState enabled_state = 3;
 }
 
-message UnitList {
-  repeated UnitSettings items = 1;
+message GRPCUnitList {
+  repeated GRPCUnit items = 1;
+}
+
+message UnitListFilter {
+  string filter = 1;
 }
 
 service Systemd {
-  rpc SetUnit(UnitSettings)       returns (google.protobuf.Empty);
-  rpc List(google.protobuf.Empty) returns (UnitList);
+  rpc SetUnit(GRPCUnitSettings) returns (google.protobuf.Empty);
+  rpc List(UnitListFilter)      returns (GRPCUnitList);
 }

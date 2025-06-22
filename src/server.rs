@@ -3,9 +3,10 @@ use std::{fs::Permissions, os::unix::fs::PermissionsExt};
 use crate::{
     grpc::{
         status_server::{Status, StatusServer},
+        systemd_server::{Systemd, SystemdServer},
         zfs_server::{Zfs, ZfsServer},
-        PingResult, ZfsDataset, ZfsList, ZfsListFilter, ZfsModifyDataset, ZfsModifyVolume, ZfsName,
-        ZfsVolume,
+        GrpcUnitList, GrpcUnitSettings, PingResult, UnitListFilter, ZfsDataset, ZfsList,
+        ZfsListFilter, ZfsModifyDataset, ZfsModifyVolume, ZfsName, ZfsVolume,
     },
     sysinfo::Info,
 };
@@ -50,7 +51,31 @@ impl Server {
             .layer(MiddlewareLayer::new(crate::middleware::LogMiddleware))
             .add_service(StatusServer::new(self.clone()))
             .add_service(ZfsServer::new(self.clone()))
+            .add_service(SystemdServer::new(self.clone()))
             .serve_with_incoming(uds_stream))
+    }
+}
+
+#[tonic::async_trait]
+impl Systemd for Server {
+    async fn list(&self, _filter: Request<UnitListFilter>) -> Result<Response<GrpcUnitList>> {
+        let systemd = crate::systemd::Systemd::new_system()
+            .await
+            .map_err(|e| tonic::Status::new(tonic::Code::Internal, e.to_string()))?;
+        let mut v = Vec::new();
+        for item in systemd
+            .list()
+            .await
+            .map_err(|e| tonic::Status::new(tonic::Code::Internal, e.to_string()))?
+        {
+            v.push(item.into());
+        }
+
+        Ok(Response::new(GrpcUnitList { items: v }))
+    }
+
+    async fn set_unit(&self, _filter: Request<GrpcUnitSettings>) -> Result<Response<()>> {
+        Ok(Response::new(()))
     }
 }
 
