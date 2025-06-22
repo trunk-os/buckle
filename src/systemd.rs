@@ -317,11 +317,18 @@ impl Systemd {
         })
     }
 
-    pub async fn list(&self) -> Result<Vec<Unit>> {
+    pub async fn list(&self, filter: Option<String>) -> Result<Vec<Unit>> {
         let list = self.manager.list_units().await?;
         let mut v = Vec::new();
         for item in list {
             let name = item.0;
+
+            if let Some(filter) = &filter {
+                if !name.contains(filter) {
+                    continue;
+                }
+            }
+
             let description = item.1;
             let enabled_state: EnabledState = item.3.parse()?;
 
@@ -351,7 +358,7 @@ mod tests {
     #[tokio::test]
     async fn test_status() {
         let systemd = Systemd::new_system().await.unwrap();
-        let list = systemd.list().await.unwrap();
+        let list = systemd.list(None).await.unwrap();
         let mut op = None;
         for item in list {
             // this should be running on any system that tests with zfs
@@ -370,7 +377,7 @@ mod tests {
     #[tokio::test]
     async fn test_list() {
         let systemd = Systemd::new_system().await.unwrap();
-        let list = systemd.list().await.unwrap();
+        let list = systemd.list(None).await.unwrap();
         let mut found = false;
         for item in list {
             if item.name == "zfs-import.target" {

@@ -58,13 +58,20 @@ impl Server {
 
 #[tonic::async_trait]
 impl Systemd for Server {
-    async fn list(&self, _filter: Request<UnitListFilter>) -> Result<Response<GrpcUnitList>> {
+    async fn list(&self, filter: Request<UnitListFilter>) -> Result<Response<GrpcUnitList>> {
         let systemd = crate::systemd::Systemd::new_system()
             .await
             .map_err(|e| tonic::Status::new(tonic::Code::Internal, e.to_string()))?;
         let mut v = Vec::new();
+        let filter = filter.into_inner();
+
+        let mut out = None;
+        if !filter.filter.is_empty() {
+            out = Some(filter.filter);
+        }
+
         for item in systemd
-            .list()
+            .list(out)
             .await
             .map_err(|e| tonic::Status::new(tonic::Code::Internal, e.to_string()))?
         {
