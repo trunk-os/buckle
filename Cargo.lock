@@ -320,6 +320,7 @@ dependencies = [
  "clap",
  "fancy-duration",
  "prost",
+ "prost-types",
  "serde",
  "serde_json",
  "serde_yaml_ng",

@@ -1,5 +1,6 @@
 syntax = "proto3";
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 package buckle;
 
 message PingResult {
@@ -133,7 +134,19 @@ message UnitListFilter {
   string filter = 1;
 }
 
+message GRPCUnitName {
+  string name = 1;
+}
+
+message GRPCLogMessage {
+  google.protobuf.Timestamp time         = 1;
+  string                    service_name = 2;
+  string                    msg          = 3;
+  uint64                    pid          = 4;
+}
+
 service Systemd {
   rpc SetUnit(GRPCUnitSettings) returns (google.protobuf.Empty);
   rpc List(UnitListFilter)      returns (GRPCUnitList);
+  rpc UnitLog(GRPCUnitName)     returns (stream GRPCLogMessage);
 }

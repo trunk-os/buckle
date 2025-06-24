@@ -8,6 +8,7 @@ tokio = { version = "*", features = [ "full" ] }
 tonic = "*"
 tonic-middleware = "*"
 prost = "^0.13"
+prost-types = "^0.13"
 clap = { version = "*", features = [ "derive" ] }
 anyhow = "*"
 fancy-duration = "*"

@@ -1,15 +1,15 @@
-use std::{fs::Permissions, os::unix::fs::PermissionsExt};
-
 use crate::{
     grpc::{
         status_server::{Status, StatusServer},
         systemd_server::{Systemd, SystemdServer},
         zfs_server::{Zfs, ZfsServer},
-        GrpcUnitList, GrpcUnitSettings, PingResult, UnitListFilter, ZfsDataset, ZfsList,
-        ZfsListFilter, ZfsModifyDataset, ZfsModifyVolume, ZfsName, ZfsVolume,
+        GrpcLogMessage, GrpcUnitList, GrpcUnitName, GrpcUnitSettings, PingResult, UnitListFilter,
+        ZfsDataset, ZfsList, ZfsListFilter, ZfsModifyDataset, ZfsModifyVolume, ZfsName, ZfsVolume,
     },
     sysinfo::Info,
 };
+use std::{fs::Permissions, os::unix::fs::PermissionsExt, pin::Pin};
+use tokio_stream::{wrappers::ReceiverStream, Stream};
 use tonic::{transport::Server as TransportServer, Request, Response, Result};
 use tonic_middleware::MiddlewareLayer;
 use tracing::info;
@@ -81,8 +81,20 @@ impl Systemd for Server {
         Ok(Response::new(GrpcUnitList { items: v }))
     }
 
+    type UnitLogStream = Pin<Box<dyn Stream<Item = Result<GrpcLogMessage>> + Send>>;
+
     async fn set_unit(&self, _filter: Request<GrpcUnitSettings>) -> Result<Response<()>> {
         Ok(Response::new(()))
+    }
+
+    async fn unit_log(
+        &self,
+        _name: Request<GrpcUnitName>,
+    ) -> Result<Response<Self::UnitLogStream>> {
+        let (tx, rx) = tokio::sync::mpsc::channel(128);
+        let output_stream = ReceiverStream::new(rx);
+        drop(tx);
+        Ok(Response::new(Box::pin(output_stream) as Self::UnitLogStream))
     }
 }
 
