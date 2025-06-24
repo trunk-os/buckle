@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+use std::collections::BTreeMap;
+
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use zbus_systemd::{
@@ -348,6 +350,33 @@ impl Systemd {
             })
         }
         Ok(v)
+    }
+
+    pub async fn log(
+        &self,
+        name: &str,
+    ) -> Result<tokio::sync::mpsc::UnboundedReceiver<BTreeMap<String, String>>> {
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+
+        let name = name.to_string();
+        tokio::spawn(async move {
+            let mut journal = systemd::journal::OpenOptions::default()
+                .local_only(true)
+                .system(true)
+                .all_namespaces(true)
+                .open()
+                .unwrap();
+
+            while let Ok(Some(entry)) = journal
+                .match_add("UNIT", name.as_bytes())
+                .unwrap()
+                .next_entry()
+            {
+                tx.send(entry).unwrap();
+            }
+        });
+
+        Ok(rx)
     }
 }
 
