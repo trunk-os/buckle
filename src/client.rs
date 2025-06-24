@@ -2,8 +2,8 @@ use crate::{
     grpc::{
         status_client::StatusClient as GRPCStatusClient,
         systemd_client::SystemdClient as GRPCSystemdClient, zfs_client::ZfsClient as GRPCZfsClient,
-        GrpcUnitSettings, PingResult, UnitEnabledState, UnitListFilter, UnitRuntimeState,
-        ZfsListFilter, ZfsName,
+        GrpcLogMessage, GrpcUnitName, GrpcUnitSettings, PingResult, UnitEnabledState,
+        UnitListFilter, UnitRuntimeState, ZfsListFilter, ZfsName,
     },
     systemd::{Unit, UnitSettings},
 };
@@ -13,7 +13,7 @@ pub use crate::{
     zfs::{Dataset, ModifyDataset, ModifyVolume, Volume, ZFSStat},
 };
 use std::path::PathBuf;
-use tonic::{transport::Channel, Request};
+use tonic::{transport::Channel, Request, Streaming};
 
 type Result<T> = std::result::Result<T, tonic::Status>;
 
@@ -81,6 +81,17 @@ impl SystemdClient {
         };
         self.client.set_unit(Request::new(out)).await?;
         Ok(())
+    }
+
+    pub async fn unit_log(&mut self, name: &str) -> Result<Streaming<GrpcLogMessage>> {
+        let resp = self
+            .client
+            .unit_log(GrpcUnitName {
+                name: name.to_string(),
+            })
+            .await?
+            .into_inner();
+        Ok(resp)
     }
 }
 
