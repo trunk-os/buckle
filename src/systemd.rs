@@ -390,14 +390,18 @@ impl Systemd {
                 .open()
                 .unwrap();
             let journal = journal.match_add("UNIT", name).unwrap();
+            journal.seek_tail().unwrap();
 
             let mut total = 0;
-            while let Ok(Some(entry)) = journal.next_entry() {
-                tx.send(entry).unwrap();
+            while let Ok(Some(_)) = journal.previous_entry() {
                 total += 1;
                 if total > count {
                     break;
                 }
+            }
+
+            while let Ok(Some(entry)) = journal.next_entry() {
+                tx.send(entry).unwrap()
             }
         });
 
