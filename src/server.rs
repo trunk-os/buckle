@@ -3,7 +3,7 @@ use crate::{
         status_server::{Status, StatusServer},
         systemd_server::{Systemd, SystemdServer},
         zfs_server::{Zfs, ZfsServer},
-        GrpcLogMessage, GrpcUnitList, GrpcUnitName, GrpcUnitSettings, PingResult, UnitListFilter,
+        GrpcLogMessage, GrpcLogParams, GrpcUnitList, GrpcUnitSettings, PingResult, UnitListFilter,
         ZfsDataset, ZfsList, ZfsListFilter, ZfsModifyDataset, ZfsModifyVolume, ZfsName, ZfsVolume,
     },
     sysinfo::Info,
@@ -87,7 +87,10 @@ impl Systemd for Server {
         Ok(Response::new(()))
     }
 
-    async fn unit_log(&self, name: Request<GrpcUnitName>) -> Result<Response<Self::UnitLogStream>> {
+    async fn unit_log(
+        &self,
+        params: Request<GrpcLogParams>,
+    ) -> Result<Response<Self::UnitLogStream>> {
         let (tx, rx) = tokio::sync::mpsc::channel(128);
         let output_stream = ReceiverStream::new(rx);
         let systemd = crate::systemd::Systemd::new_system()
@@ -95,15 +98,42 @@ impl Systemd for Server {
             .map_err(|e| tonic::Status::new(tonic::Code::Internal, e.to_string()))?;
 
         tokio::spawn(async move {
-            let mut rcv = systemd.log(&name.into_inner().name).await.unwrap();
+            let params = params.into_inner();
+            let mut rcv = systemd.log(&params.name, params.count).await.unwrap();
             while let Some(items) = rcv.recv().await {
-                for item in items {
-                    eprintln!("{} / {}", item.0, item.1);
+                let mut time: Option<std::time::SystemTime> = None;
+                let mut msg: Option<String> = None;
+                let mut pid: Option<u64> = None;
+
+                for (key, value) in items {
+                    match key.as_str() {
+                        "_SOURCE_REALTIME_TIMESTAMP" => {
+                            time = Some(
+                                std::time::SystemTime::UNIX_EPOCH
+                                    + std::time::Duration::from_secs(value.parse::<u64>().unwrap()),
+                            )
+                        }
+                        "MESSAGE" => msg = Some(value),
+                        "_PID" => pid = Some(value.parse().unwrap()),
+                        _ => {}
+                    }
+
+                    if time.is_some() && msg.is_some() && pid.is_some() {
+                        tx.send(Ok(GrpcLogMessage {
+                            service_name: params.name.clone(),
+                            msg: msg.clone().unwrap(),
+                            pid: pid.unwrap(),
+                            time: time.map(Into::into),
+                        }))
+                        .await
+                        .unwrap();
+                        time = None;
+                        msg = None;
+                        pid = None;
+                    }
                 }
             }
         });
-
-        drop(tx);
 
         Ok(Response::new(Box::pin(output_stream) as Self::UnitLogStream))
     }
@@ -180,8 +210,10 @@ impl Zfs for Server {
 #[cfg(test)]
 mod tests {
     mod systemd {
+        use tokio_stream::StreamExt;
+
         use crate::{
-            grpc::GrpcUnitName,
+            grpc::GrpcLogParams,
             testutil::{get_systemd_client, make_server},
         };
 
@@ -190,12 +222,21 @@ mod tests {
             let mut client = get_systemd_client(make_server(None).await.unwrap())
                 .await
                 .unwrap();
-            let _log = client
-                .unit_log(GrpcUnitName {
-                    name: "docker.service".into(),
+            let log = client
+                .unit_log(GrpcLogParams {
+                    name: "network.target".into(),
+                    count: 100,
                 })
                 .await
                 .unwrap();
+            let mut log = log.into_inner();
+            let mut total = 0;
+            while let Some(_) = log.next().await {
+                total += 1;
+            }
+
+            assert!(total < 100);
+            assert!(total > 0);
         }
     }
 

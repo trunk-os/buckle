@@ -2,7 +2,7 @@ use crate::{
     grpc::{
         status_client::StatusClient as GRPCStatusClient,
         systemd_client::SystemdClient as GRPCSystemdClient, zfs_client::ZfsClient as GRPCZfsClient,
-        GrpcLogMessage, GrpcUnitName, GrpcUnitSettings, PingResult, UnitEnabledState,
+        GrpcLogMessage, GrpcLogParams, GrpcUnitSettings, PingResult, UnitEnabledState,
         UnitListFilter, UnitRuntimeState, ZfsListFilter, ZfsName,
     },
     systemd::{Unit, UnitSettings},
@@ -83,11 +83,12 @@ impl SystemdClient {
         Ok(())
     }
 
-    pub async fn unit_log(&mut self, name: &str) -> Result<Streaming<GrpcLogMessage>> {
+    pub async fn unit_log(&mut self, name: &str, count: u64) -> Result<Streaming<GrpcLogMessage>> {
         let resp = self
             .client
-            .unit_log(GrpcUnitName {
+            .unit_log(GrpcLogParams {
                 name: name.to_string(),
+                count,
             })
             .await?
             .into_inner();

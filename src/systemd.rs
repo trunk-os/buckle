@@ -355,6 +355,7 @@ impl Systemd {
     pub async fn log(
         &self,
         name: &str,
+        count: u64,
     ) -> Result<tokio::sync::mpsc::UnboundedReceiver<BTreeMap<String, String>>> {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
 
@@ -368,9 +369,13 @@ impl Systemd {
                 .unwrap();
             let journal = journal.match_add("UNIT", name).unwrap();
 
+            let mut total = 0;
             while let Ok(Some(entry)) = journal.next_entry() {
-                eprintln!("{:?}", entry);
                 tx.send(entry).unwrap();
+                total += 1;
+                if total > count {
+                    break;
+                }
             }
         });
 
