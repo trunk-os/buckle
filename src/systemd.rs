@@ -366,12 +366,10 @@ impl Systemd {
                 .all_namespaces(true)
                 .open()
                 .unwrap();
+            let journal = journal.match_add("UNIT", name).unwrap();
 
-            while let Ok(Some(entry)) = journal
-                .match_add("UNIT", name.as_bytes())
-                .unwrap()
-                .next_entry()
-            {
+            while let Ok(Some(entry)) = journal.next_entry() {
+                eprintln!("{:?}", entry);
                 tx.send(entry).unwrap();
             }
         });

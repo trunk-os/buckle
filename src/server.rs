@@ -87,13 +87,24 @@ impl Systemd for Server {
         Ok(Response::new(()))
     }
 
-    async fn unit_log(
-        &self,
-        _name: Request<GrpcUnitName>,
-    ) -> Result<Response<Self::UnitLogStream>> {
+    async fn unit_log(&self, name: Request<GrpcUnitName>) -> Result<Response<Self::UnitLogStream>> {
         let (tx, rx) = tokio::sync::mpsc::channel(128);
         let output_stream = ReceiverStream::new(rx);
+        let systemd = crate::systemd::Systemd::new_system()
+            .await
+            .map_err(|e| tonic::Status::new(tonic::Code::Internal, e.to_string()))?;
+
+        tokio::spawn(async move {
+            let mut rcv = systemd.log(&name.into_inner().name).await.unwrap();
+            while let Some(items) = rcv.recv().await {
+                for item in items {
+                    eprintln!("{} / {}", item.0, item.1);
+                }
+            }
+        });
+
         drop(tx);
+
         Ok(Response::new(Box::pin(output_stream) as Self::UnitLogStream))
     }
 }
@@ -168,6 +179,26 @@ impl Zfs for Server {
 
 #[cfg(test)]
 mod tests {
+    mod systemd {
+        use crate::{
+            grpc::GrpcUnitName,
+            testutil::{get_systemd_client, make_server},
+        };
+
+        #[tokio::test]
+        async fn test_log() {
+            let mut client = get_systemd_client(make_server(None).await.unwrap())
+                .await
+                .unwrap();
+            let _log = client
+                .unit_log(GrpcUnitName {
+                    name: "docker.service".into(),
+                })
+                .await
+                .unwrap();
+        }
+    }
+
     #[cfg(feature = "zfs")]
     mod status {
         use crate::testutil::{get_status_client, make_server};

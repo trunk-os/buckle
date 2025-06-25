@@ -1,5 +1,5 @@
 use crate::config::LogLevel;
-use crate::grpc::status_client::StatusClient;
+use crate::grpc::{status_client::StatusClient, systemd_client::SystemdClient};
 use crate::server::Server;
 use anyhow::Result;
 use std::sync::LazyLock;
@@ -40,6 +40,10 @@ pub async fn make_server(config: Option<crate::config::Config>) -> Result<std::p
 
 pub async fn get_status_client(socket: std::path::PathBuf) -> Result<StatusClient<Channel>> {
     Ok(StatusClient::connect(format!("unix://{}", socket.to_str().unwrap())).await?)
+}
+
+pub async fn get_systemd_client(socket: std::path::PathBuf) -> Result<SystemdClient<Channel>> {
+    Ok(SystemdClient::connect(format!("unix://{}", socket.to_str().unwrap())).await?)
 }
 
 #[cfg(feature = "zfs")]
