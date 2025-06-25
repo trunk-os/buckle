@@ -231,7 +231,12 @@ mod tests {
                 .unwrap();
             let mut log = log.into_inner();
             let mut total = 0;
-            while let Some(_) = log.next().await {
+            while let Some(item) = log.next().await {
+                let item = item.unwrap();
+                assert!(!item.msg.is_empty());
+                assert!(item.time.is_some());
+                assert_ne!(!item.time.unwrap().seconds, 0);
+                assert_ne!(item.pid, 0);
                 total += 1;
             }
 
