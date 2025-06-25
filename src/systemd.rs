@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, time::SystemTime};
 
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
@@ -8,7 +8,29 @@ use zbus_systemd::{
     zbus::connection::Connection,
 };
 
-use crate::grpc::{GrpcUnit, GrpcUnitStatus, UnitEnabledState, UnitLastRunState, UnitRuntimeState};
+use crate::grpc::{
+    GrpcLogMessage, GrpcUnit, GrpcUnitStatus, UnitEnabledState, UnitLastRunState, UnitRuntimeState,
+};
+
+#[derive(Debug, Clone, Serialize, Eq, PartialEq)]
+pub struct LogMessage {
+    message: String,
+    time: SystemTime,
+    service_name: String,
+    pid: u64,
+}
+
+impl From<GrpcLogMessage> for LogMessage {
+    fn from(value: GrpcLogMessage) -> Self {
+        Self {
+            message: value.msg,
+            time: SystemTime::UNIX_EPOCH
+                + std::time::Duration::from_secs(value.time.unwrap_or_default().seconds as u64),
+            service_name: value.service_name,
+            pid: value.pid,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub enum LastRunState {

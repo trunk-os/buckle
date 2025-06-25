@@ -229,8 +229,10 @@ mod tests {
                 })
                 .await
                 .unwrap();
+
             let mut log = log.into_inner();
             let mut total = 0;
+
             while let Some(item) = log.next().await {
                 let item = item.unwrap();
                 assert!(!item.msg.is_empty());
