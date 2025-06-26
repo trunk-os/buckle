@@ -377,7 +377,7 @@ impl Systemd {
     pub async fn log(
         &self,
         name: &str,
-        count: u64,
+        count: usize,
     ) -> Result<tokio::sync::mpsc::UnboundedReceiver<BTreeMap<String, String>>> {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
 

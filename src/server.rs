@@ -101,7 +101,10 @@ impl Systemd for Server {
         let p2 = params.clone();
         tokio::spawn(async move {
             let params = p2;
-            let mut rcv = systemd.log(&params.name, params.count).await.unwrap();
+            let mut rcv = systemd
+                .log(&params.name, params.count as usize)
+                .await
+                .unwrap();
             while let Some(items) = rcv.recv().await {
                 let mut time: Option<std::time::SystemTime> = None;
                 let mut msg: Option<String> = None;
