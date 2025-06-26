@@ -91,14 +91,16 @@ impl Systemd for Server {
         &self,
         params: Request<GrpcLogParams>,
     ) -> Result<Response<Self::UnitLogStream>> {
-        let (tx, rx) = tokio::sync::mpsc::channel(128);
+        let params = params.into_inner();
+        let (tx, rx) = tokio::sync::mpsc::channel(params.count as usize);
         let output_stream = ReceiverStream::new(rx);
         let systemd = crate::systemd::Systemd::new_system()
             .await
             .map_err(|e| tonic::Status::new(tonic::Code::Internal, e.to_string()))?;
 
+        let p2 = params.clone();
         tokio::spawn(async move {
-            let params = params.into_inner();
+            let params = p2;
             let mut rcv = systemd.log(&params.name, params.count).await.unwrap();
             while let Some(items) = rcv.recv().await {
                 let mut time: Option<std::time::SystemTime> = None;
