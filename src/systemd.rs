@@ -32,8 +32,9 @@ impl From<GrpcLogMessage> for LogMessage {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Default)]
 pub enum LastRunState {
+    #[default]
     Failed,
     Dead,
     Mounted,
@@ -83,8 +84,9 @@ impl std::str::FromStr for LastRunState {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Default)]
 pub enum RuntimeState {
+    #[default]
     Started,
     Stopped,
     Restarted,
@@ -119,8 +121,9 @@ impl std::str::FromStr for RuntimeState {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Default)]
 pub enum EnabledState {
+    #[default]
     Enabled,
     Disabled,
     Failed,
@@ -275,7 +278,7 @@ impl From<LastRunState> for UnitLastRunState {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Default)]
 pub struct Unit {
     pub name: String,
     pub description: String,
@@ -284,7 +287,7 @@ pub struct Unit {
     pub status: Status,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Default)]
 pub struct Status {
     pub runtime_state: RuntimeState,
     pub last_run_state: LastRunState,
