@@ -83,12 +83,16 @@ impl SystemdClient {
         Ok(())
     }
 
-    pub async fn unit_log(&mut self, name: &str, count: u64) -> Result<Streaming<GrpcLogMessage>> {
+    pub async fn unit_log(
+        &mut self,
+        name: &str,
+        count: usize,
+    ) -> Result<Streaming<GrpcLogMessage>> {
         let resp = self
             .client
             .unit_log(GrpcLogParams {
                 name: name.to_string(),
-                count,
+                count: count as u64,
             })
             .await?
             .into_inner();
