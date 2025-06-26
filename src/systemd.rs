@@ -392,7 +392,7 @@ impl Systemd {
             let journal = journal.match_add("UNIT", name).unwrap();
             journal.seek_tail().unwrap();
 
-            // do the seek manually as there is no direct support for seeking by entry-count that I
+            // do the seek manually as there is no direct support for seeking by entry count that I
             // can find. this is probably subject to some kind of race condition, but it really
             // doesn't matter unless an extreme amount of log messages arrive in the window between
             // the rewind and fast-forward.
