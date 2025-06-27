@@ -9,7 +9,8 @@ use zbus_systemd::{
 };
 
 use crate::grpc::{
-    GrpcLogMessage, GrpcUnit, GrpcUnitStatus, UnitEnabledState, UnitLastRunState, UnitRuntimeState,
+    GrpcLogDirection, GrpcLogMessage, GrpcUnit, GrpcUnitStatus, UnitEnabledState, UnitLastRunState,
+    UnitRuntimeState,
 };
 
 #[derive(Debug, Clone, Serialize, Eq, PartialEq)]
@@ -308,6 +309,24 @@ pub enum LogDirection {
     Backward,
 }
 
+impl From<GrpcLogDirection> for LogDirection {
+    fn from(value: GrpcLogDirection) -> Self {
+        match value {
+            GrpcLogDirection::Forward => Self::Forward,
+            GrpcLogDirection::Backward => Self::Backward,
+        }
+    }
+}
+
+impl From<LogDirection> for GrpcLogDirection {
+    fn from(value: LogDirection) -> Self {
+        match value {
+            LogDirection::Forward => Self::Forward,
+            LogDirection::Backward => Self::Backward,
+        }
+    }
+}
+
 impl Systemd {
     pub async fn new(client: Connection) -> Result<Self> {
         Ok(Self {
@@ -416,8 +435,8 @@ impl Systemd {
             // the previous 100 lines". I think it's better this way because it's consistently
             // weird.
 
-            if let Some(cursor) = cursor {
-                journal.seek_cursor(cursor).unwrap();
+            if cursor.is_some() && !cursor.clone().unwrap().is_empty() {
+                journal.seek_cursor(cursor.unwrap()).unwrap();
             } else {
                 journal.seek_tail().unwrap();
 

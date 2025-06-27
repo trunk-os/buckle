@@ -135,8 +135,15 @@ message UnitListFilter {
 }
 
 message GRPCLogParams {
-  string name = 1;
-  uint64 count = 2;
+  string           name      = 1;
+  uint64           count     = 2;
+  string           cursor    = 3;
+  GRPCLogDirection direction = 4;
+}
+
+enum GRPCLogDirection {
+  Forward  = 0;
+  Backward = 1;
 }
 
 message GRPCLogMessage {
@@ -150,5 +157,5 @@ message GRPCLogMessage {
 service Systemd {
   rpc SetUnit(GRPCUnitSettings) returns (google.protobuf.Empty);
   rpc List(UnitListFilter)      returns (GRPCUnitList);
-  rpc UnitLog(GRPCLogParams)     returns (stream GRPCLogMessage);
+  rpc UnitLog(GRPCLogParams)    returns (stream GRPCLogMessage);
 }

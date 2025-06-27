@@ -2,10 +2,10 @@ use crate::{
     grpc::{
         status_client::StatusClient as GRPCStatusClient,
         systemd_client::SystemdClient as GRPCSystemdClient, zfs_client::ZfsClient as GRPCZfsClient,
-        GrpcLogMessage, GrpcLogParams, GrpcUnitSettings, PingResult, UnitEnabledState,
-        UnitListFilter, UnitRuntimeState, ZfsListFilter, ZfsName,
+        GrpcLogDirection, GrpcLogMessage, GrpcLogParams, GrpcUnitSettings, PingResult,
+        UnitEnabledState, UnitListFilter, UnitRuntimeState, ZfsListFilter, ZfsName,
     },
-    systemd::{Unit, UnitSettings},
+    systemd::{LogDirection, Unit, UnitSettings},
 };
 // we expose these types we should serve them
 pub use crate::{
@@ -87,12 +87,16 @@ impl SystemdClient {
         &mut self,
         name: &str,
         count: usize,
+        cursor: Option<String>,
+        direction: Option<LogDirection>,
     ) -> Result<Streaming<GrpcLogMessage>> {
         let resp = self
             .client
             .unit_log(GrpcLogParams {
                 name: name.to_string(),
                 count: count as u64,
+                cursor: cursor.unwrap_or_default(),
+                direction: Into::<GrpcLogDirection>::into(direction.unwrap_or_default()).into(),
             })
             .await?
             .into_inner();

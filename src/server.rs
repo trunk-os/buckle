@@ -224,7 +224,7 @@ mod tests {
         use tokio_stream::StreamExt;
 
         use crate::{
-            grpc::GrpcLogParams,
+            grpc::{GrpcLogDirection, GrpcLogParams},
             testutil::{get_systemd_client, make_server},
         };
 
@@ -237,6 +237,8 @@ mod tests {
                 .unit_log(GrpcLogParams {
                     name: "network.target".into(),
                     count: 100,
+                    cursor: "".into(),
+                    direction: GrpcLogDirection::Forward.into(),
                 })
                 .await
                 .unwrap();
@@ -250,6 +252,7 @@ mod tests {
                 assert!(item.time.is_some());
                 assert_ne!(!item.time.unwrap().seconds, 0);
                 assert_ne!(item.pid, 0);
+                assert!(!item.cursor.is_empty());
                 total += 1;
             }
 
