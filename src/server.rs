@@ -109,6 +109,7 @@ impl Systemd for Server {
                 let mut time: Option<std::time::SystemTime> = None;
                 let mut msg: Option<String> = None;
                 let mut pid: Option<u64> = None;
+                let mut cursor: Option<String> = None;
 
                 for (key, value) in items {
                     match key.as_str() {
@@ -120,6 +121,7 @@ impl Systemd for Server {
                         }
                         "MESSAGE" => msg = Some(value),
                         "_PID" => pid = Some(value.parse().unwrap()),
+                        "CURSOR" => cursor = Some(value),
                         _ => {}
                     }
 
@@ -129,12 +131,14 @@ impl Systemd for Server {
                             msg: msg.clone().unwrap(),
                             pid: pid.unwrap(),
                             time: time.map(Into::into),
+                            cursor: cursor.unwrap(),
                         }))
                         .await
                         .unwrap();
                         time = None;
                         msg = None;
                         pid = None;
+                        cursor = None;
                     }
                 }
             }

@@ -18,6 +18,7 @@ pub struct LogMessage {
     time: SystemTime,
     service_name: String,
     pid: u64,
+    cursor: String,
 }
 
 impl From<GrpcLogMessage> for LogMessage {
@@ -28,6 +29,7 @@ impl From<GrpcLogMessage> for LogMessage {
                 + std::time::Duration::from_secs(value.time.unwrap_or_default().seconds as u64),
             service_name: value.service_name,
             pid: value.pid,
+            cursor: value.cursor,
         }
     }
 }
@@ -374,6 +376,7 @@ impl Systemd {
                 object_path: item.6.to_string(),
             })
         }
+
         Ok(v)
     }
 
@@ -392,6 +395,7 @@ impl Systemd {
                 .all_namespaces(true)
                 .open()
                 .unwrap();
+
             let journal = journal.match_add("UNIT", name).unwrap();
             journal.seek_tail().unwrap();
 
@@ -407,7 +411,10 @@ impl Systemd {
                 }
             }
 
-            while let Ok(Some(entry)) = journal.next_entry() {
+            // FIXME: the struct should really be constructed here, not in the service handler
+            while let Ok(Some(mut entry)) = journal.next_entry() {
+                // Add the cursor so it can be pulled out later
+                entry.insert("CURSOR".into(), journal.cursor().unwrap());
                 tx.send(entry).unwrap()
             }
         });

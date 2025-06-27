@@ -144,6 +144,7 @@ message GRPCLogMessage {
   string                    service_name = 2;
   string                    msg          = 3;
   uint64                    pid          = 4;
+  string                    cursor       = 5;
 }
 
 service Systemd {
