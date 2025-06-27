@@ -301,6 +301,13 @@ pub(crate) struct Systemd {
     manager: ManagerProxy<'static>,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Default)]
+pub enum LogDirection {
+    #[default]
+    Forward,
+    Backward,
+}
+
 impl Systemd {
     pub async fn new(client: Connection) -> Result<Self> {
         Ok(Self {
@@ -384,6 +391,8 @@ impl Systemd {
         &self,
         name: &str,
         count: usize,
+        cursor: Option<String>,
+        direction: Option<LogDirection>,
     ) -> Result<tokio::sync::mpsc::UnboundedReceiver<BTreeMap<String, String>>> {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
 
@@ -397,25 +406,51 @@ impl Systemd {
                 .unwrap();
 
             let journal = journal.match_add("UNIT", name).unwrap();
-            journal.seek_tail().unwrap();
 
-            // do the seek manually as there is no direct support for seeking by entry count that I
-            // can find. this is probably subject to some kind of race condition, but it really
-            // doesn't matter unless an extreme amount of log messages arrive in the window between
-            // the rewind and fast-forward.
-            let mut total = 0;
-            while let Ok(Some(_)) = journal.previous_entry() {
-                total += 1;
-                if total > count {
-                    break;
+            // the logic here is:
+            // if there is a cursor, seek to it,
+            // otherwise, seek to the end and rewind count entries.
+            // then, for a direction forward or backward, send count log messages.
+            //
+            // this leads to weird logic conclusions like "seek to the end, rewind, and then play
+            // the previous 100 lines". I think it's better this way because it's consistently
+            // weird.
+
+            if let Some(cursor) = cursor {
+                journal.seek_cursor(cursor).unwrap();
+            } else {
+                journal.seek_tail().unwrap();
+
+                // do the seek manually as there is no direct support for seeking by entry count that I
+                // can find. this is probably subject to some kind of race condition, but it really
+                // doesn't matter unless an extreme amount of log messages arrive in the window between
+                // the rewind and fast-forward.
+                let mut total = 0;
+                while let Ok(Some(_)) = journal.previous_entry() {
+                    total += 1;
+                    if total > count {
+                        break;
+                    }
                 }
             }
 
-            // FIXME: the struct should really be constructed here, not in the service handler
-            while let Ok(Some(mut entry)) = journal.next_entry() {
-                // Add the cursor so it can be pulled out later
-                entry.insert("CURSOR".into(), journal.cursor().unwrap());
-                tx.send(entry).unwrap()
+            match direction.unwrap_or_default() {
+                LogDirection::Forward => {
+                    // FIXME: the struct should really be constructed here, not in the service handler
+                    while let Ok(Some(mut entry)) = journal.next_entry() {
+                        // Add the cursor so it can be pulled out later
+                        entry.insert("CURSOR".into(), journal.cursor().unwrap());
+                        tx.send(entry).unwrap()
+                    }
+                }
+                LogDirection::Backward => {
+                    // FIXME: the struct should really be constructed here, not in the service handler
+                    while let Ok(Some(mut entry)) = journal.previous_entry() {
+                        // Add the cursor so it can be pulled out later
+                        entry.insert("CURSOR".into(), journal.cursor().unwrap());
+                        tx.send(entry).unwrap()
+                    }
+                }
             }
         });
 

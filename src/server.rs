@@ -87,6 +87,8 @@ impl Systemd for Server {
         Ok(Response::new(()))
     }
 
+    // FIXME: this really is only a streaming method because of memory usage concnerns. Maybe
+    // another way would be better
     async fn unit_log(
         &self,
         params: Request<GrpcLogParams>,
@@ -102,7 +104,7 @@ impl Systemd for Server {
         tokio::spawn(async move {
             let params = p2;
             let mut rcv = systemd
-                .log(&params.name, params.count as usize)
+                .log(&params.name, params.count as usize, None, None)
                 .await
                 .unwrap();
             while let Some(items) = rcv.recv().await {
