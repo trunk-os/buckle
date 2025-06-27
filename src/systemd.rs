@@ -302,7 +302,7 @@ pub(crate) struct Systemd {
     manager: ManagerProxy<'static>,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Default)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Default, Serialize, Deserialize)]
 pub enum LogDirection {
     #[default]
     Forward,
