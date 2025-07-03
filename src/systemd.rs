@@ -342,6 +342,9 @@ impl Systemd {
         Self::new(Connection::system().await?).await
     }
 
+    // NOTE: the following functions all take object paths, not systemd service names. To get the
+    // object path, use either list() (with a filter) or get_unit().
+
     pub async fn start(&self, name: String) -> Result<()> {
         self.manager.start_unit(name, "fail".into()).await?;
         Ok(())
@@ -371,6 +374,12 @@ impl Systemd {
         })
     }
 
+    // gets the object path for the unit name (f.e., 'sshd.service')
+    // required for all the above management calls
+    pub async fn get_unit(&self, name: String) -> Result<String> {
+        Ok(self.manager.get_unit(name).await?.to_string())
+    }
+
     pub async fn list(&self, filter: Option<String>) -> Result<Vec<Unit>> {
         let list = self.manager.list_units().await?;
         let mut v = Vec::new();
@@ -398,6 +407,7 @@ impl Systemd {
                     runtime_state,
                     last_run_state,
                 },
+                // required for all the management calls
                 object_path: item.6.to_string(),
             })
         }
@@ -493,6 +503,11 @@ mod tests {
         }
         assert!(op.is_some(), "did not find item in systemd to check");
         let op = op.unwrap();
+
+        assert_eq!(
+            systemd.get_unit("zfs-import.target".into()).await.unwrap(),
+            op
+        );
 
         let status = systemd.status(op).await.unwrap();
         assert_eq!(status.runtime_state, RuntimeState::Started);
