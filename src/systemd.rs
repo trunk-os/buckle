@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use std::{collections::BTreeMap, time::SystemTime};
 
 use anyhow::{anyhow, Result};
@@ -297,7 +296,7 @@ pub struct Status {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct Systemd {
+pub struct Systemd {
     client: Connection,
     manager: ManagerProxy<'static>,
 }
