@@ -365,8 +365,8 @@ impl Systemd {
         Ok(())
     }
 
-    pub async fn reload_all(&self) -> Result<()> {
-        self.manager.reload().await?;
+    pub async fn load_unit(&self, name: String) -> Result<()> {
+        self.manager.load_unit(name).await?;
         Ok(())
     }
 
