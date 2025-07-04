@@ -365,6 +365,11 @@ impl Systemd {
         Ok(())
     }
 
+    pub async fn reload_all(&self) -> Result<()> {
+        self.manager.reload().await?;
+        Ok(())
+    }
+
     pub async fn status(&self, name: String) -> Result<Status> {
         let service = UnitProxy::new(&self.client, name).await?;
 
