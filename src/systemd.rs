@@ -360,8 +360,13 @@ impl Systemd {
         Ok(())
     }
 
-    pub async fn reload(&self, name: String) -> Result<()> {
+    pub async fn reload_unit(&self, name: String) -> Result<()> {
         self.manager.reload_unit(name, "fail".into()).await?;
+        Ok(())
+    }
+
+    pub async fn reload(&self) -> Result<()> {
+        self.manager.reload().await?;
         Ok(())
     }
 
