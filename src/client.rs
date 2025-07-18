@@ -59,6 +59,11 @@ impl Client {
 }
 
 impl SystemdClient {
+    pub async fn reload(&mut self) -> Result<()> {
+        self.client.reload(()).await?;
+        Ok(())
+    }
+
     pub async fn list(&mut self, filter: Option<String>) -> Result<Vec<Unit>> {
         let filter = UnitListFilter {
             filter: filter.unwrap_or_default(),

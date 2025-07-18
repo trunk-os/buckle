@@ -159,7 +159,8 @@ message GRPCUnitName {
 }
 
 service Systemd {
-  rpc SetUnit(GRPCUnitSettings) returns (google.protobuf.Empty);
-  rpc List(UnitListFilter)      returns (GRPCUnitList);
-  rpc UnitLog(GRPCLogParams)    returns (stream GRPCLogMessage);
+  rpc SetUnit(GRPCUnitSettings)     returns (google.protobuf.Empty);
+  rpc List(UnitListFilter)          returns (GRPCUnitList);
+  rpc UnitLog(GRPCLogParams)        returns (stream GRPCLogMessage);
+  rpc Reload(google.protobuf.Empty) returns (google.protobuf.Empty);
 }

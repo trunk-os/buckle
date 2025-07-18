@@ -58,6 +58,17 @@ impl Server {
 
 #[tonic::async_trait]
 impl Systemd for Server {
+    async fn reload(&self, _: tonic::Request<()>) -> Result<Response<()>> {
+        Ok(Response::new(
+            crate::systemd::Systemd::new_system()
+                .await
+                .map_err(|e| tonic::Status::new(tonic::Code::Internal, e.to_string()))?
+                .reload()
+                .await
+                .map_err(|e| tonic::Status::new(tonic::Code::Internal, e.to_string()))?,
+        ))
+    }
+
     async fn list(&self, filter: Request<UnitListFilter>) -> Result<Response<GrpcUnitList>> {
         let systemd = crate::systemd::Systemd::new_system()
             .await
