@@ -440,7 +440,7 @@ impl Systemd {
     // gets the object path for the unit name (f.e., 'sshd.service')
     // required for all the above management calls
     pub async fn get_unit(&self, name: String) -> Result<String> {
-        Ok(self.manager.get_unit(name).await?.to_string())
+        Ok(self.manager.load_unit(name).await?.to_string())
     }
 
     pub async fn list(&self, filter: Option<String>) -> Result<Vec<Unit>> {
