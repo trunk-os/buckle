@@ -91,6 +91,7 @@ pub enum LoadState {
     Loaded,
     #[default]
     Unloaded,
+    Inactive,
 }
 
 impl std::fmt::Display for LoadState {
@@ -99,6 +100,7 @@ impl std::fmt::Display for LoadState {
             match self {
                 Self::Loaded => "loaded",
                 Self::Unloaded => "not-found",
+                Self::Inactive => "inactive",
             }
             .into(),
         )
@@ -112,6 +114,7 @@ impl std::str::FromStr for LoadState {
         Ok(match s {
             "loaded" => Self::Loaded,
             "not-found" => Self::Unloaded,
+            "inactive" => Self::Unloaded,
             s => return Err(anyhow!("invalid state '{}'", s)),
         })
     }
@@ -264,6 +267,7 @@ impl From<LoadState> for UnitLoadState {
         match value {
             LoadState::Loaded => Self::Loaded,
             LoadState::Unloaded => Self::Unloaded,
+            LoadState::Inactive => Self::Inactive,
         }
     }
 }
@@ -273,6 +277,7 @@ impl From<UnitLoadState> for LoadState {
         match value {
             UnitLoadState::Loaded => Self::Loaded,
             UnitLoadState::Unloaded => Self::Unloaded,
+            UnitLoadState::Inactive => Self::Inactive,
         }
     }
 }

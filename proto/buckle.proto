@@ -85,6 +85,7 @@ service ZFS {
 enum UnitLoadState {
   Loaded   = 0;
   Unloaded = 1;
+  Inactive = 2;
 }
 
 enum UnitRuntimeState {
