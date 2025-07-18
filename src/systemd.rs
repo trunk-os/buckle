@@ -9,7 +9,7 @@ use zbus_systemd::{
 
 use crate::grpc::{
     GrpcLogDirection, GrpcLogMessage, GrpcUnit, GrpcUnitStatus, UnitEnabledState, UnitLastRunState,
-    UnitRuntimeState,
+    UnitLoadState, UnitRuntimeState,
 };
 
 #[derive(Debug, Clone, Serialize, Eq, PartialEq)]
@@ -81,6 +81,37 @@ impl std::str::FromStr for LastRunState {
             "exited" => Self::Exited,
             "active" => Self::Active,
             "waiting" => Self::Waiting,
+            s => return Err(anyhow!("invalid state '{}'", s)),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Default)]
+pub enum LoadState {
+    Loaded,
+    #[default]
+    Unloaded,
+}
+
+impl std::fmt::Display for LoadState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(
+            match self {
+                Self::Loaded => "loaded",
+                Self::Unloaded => "not-found",
+            }
+            .into(),
+        )
+    }
+}
+
+impl std::str::FromStr for LoadState {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        Ok(match s {
+            "loaded" => Self::Loaded,
+            "not-found" => Self::Unloaded,
             s => return Err(anyhow!("invalid state '{}'", s)),
         })
     }
@@ -191,6 +222,7 @@ impl From<Unit> for GrpcUnit {
 impl From<Status> for GrpcUnitStatus {
     fn from(value: Status) -> Self {
         Self {
+            load_state: Into::<UnitLoadState>::into(value.load_state).into(),
             runtime_state: Into::<UnitRuntimeState>::into(value.runtime_state).into(),
             last_run_state: Into::<UnitLastRunState>::into(value.last_run_state).into(),
         }
@@ -200,6 +232,7 @@ impl From<Status> for GrpcUnitStatus {
 impl From<GrpcUnitStatus> for Status {
     fn from(value: GrpcUnitStatus) -> Self {
         Self {
+            load_state: value.load_state().into(),
             runtime_state: value.runtime_state().into(),
             last_run_state: value.last_run_state().into(),
         }
@@ -222,6 +255,24 @@ impl From<UnitEnabledState> for EnabledState {
             UnitEnabledState::Enabled => Self::Enabled,
             UnitEnabledState::Disabled => Self::Disabled,
             UnitEnabledState::EnabledFailed => Self::Failed,
+        }
+    }
+}
+
+impl From<LoadState> for UnitLoadState {
+    fn from(value: LoadState) -> Self {
+        match value {
+            LoadState::Loaded => Self::Loaded,
+            LoadState::Unloaded => Self::Unloaded,
+        }
+    }
+}
+
+impl From<UnitLoadState> for LoadState {
+    fn from(value: UnitLoadState) -> Self {
+        match value {
+            UnitLoadState::Loaded => Self::Loaded,
+            UnitLoadState::Unloaded => Self::Unloaded,
         }
     }
 }
@@ -291,6 +342,7 @@ pub struct Unit {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Default)]
 pub struct Status {
+    pub load_state: LoadState,
     pub runtime_state: RuntimeState,
     pub last_run_state: LastRunState,
 }
@@ -379,6 +431,7 @@ impl Systemd {
         let service = UnitProxy::new(&self.client, name).await?;
 
         Ok(Status {
+            load_state: service.load_state().await?.parse()?,
             runtime_state: service.active_state().await?.parse()?,
             last_run_state: service.sub_state().await?.parse()?,
         })
@@ -403,6 +456,7 @@ impl Systemd {
             }
 
             let description = item.1;
+            let load_state: LoadState = item.2.parse()?;
             let enabled_state: EnabledState = item.3.parse()?;
 
             // two kinds of data from one string
@@ -414,6 +468,7 @@ impl Systemd {
                 description,
                 enabled_state,
                 status: Status {
+                    load_state,
                     runtime_state,
                     last_run_state,
                 },

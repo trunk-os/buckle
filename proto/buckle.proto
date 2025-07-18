@@ -82,6 +82,11 @@ service ZFS {
   rpc Destroy(ZFSName)                returns (google.protobuf.Empty);
 }
 
+enum UnitLoadState {
+  Loaded   = 0;
+  Unloaded = 1;
+}
+
 enum UnitRuntimeState {
   Started   = 0;
   Stopped   = 1;
@@ -108,8 +113,9 @@ enum UnitLastRunState {
 }
 
 message GRPCUnitStatus {
-  UnitRuntimeState runtime_state = 1;
+  UnitRuntimeState runtime_state  = 1;
   UnitLastRunState last_run_state = 2;
+  UnitLoadState    load_state     = 3;
 }
 
 message GRPCUnit {
