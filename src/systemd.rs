@@ -114,7 +114,7 @@ impl std::str::FromStr for LoadState {
         Ok(match s {
             "loaded" => Self::Loaded,
             "not-found" => Self::Unloaded,
-            "inactive" => Self::Unloaded,
+            "inactive" => Self::Inactive,
             s => return Err(anyhow!("invalid state '{}'", s)),
         })
     }
@@ -149,7 +149,7 @@ impl std::str::FromStr for RuntimeState {
     fn from_str(s: &str) -> Result<Self> {
         Ok(match s {
             "started" | "running" | "mounted" | "listening" | "plugged" | "active" => Self::Started,
-            "stopped" | "dead" | "failed" | "exited" | "waiting" => Self::Stopped,
+            "stopped" | "inactive" | "dead" | "failed" | "exited" | "waiting" => Self::Stopped,
             "restarted" => Self::Restarted,
             "reloaded" => Self::Reloaded,
             s => return Err(anyhow!("invalid state '{}'", s)),
