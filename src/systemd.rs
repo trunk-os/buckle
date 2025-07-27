@@ -468,18 +468,20 @@ impl Systemd {
             let runtime_state: RuntimeState = item.4.parse()?;
             let last_run_state: LastRunState = item.4.parse()?;
 
-            v.push(Unit {
-                name,
-                description,
-                enabled_state,
-                status: Status {
-                    load_state,
-                    runtime_state,
-                    last_run_state,
-                },
-                // required for all the management calls
-                object_path: item.6.to_string(),
-            })
+            if matches!(load_state, LoadState::Loaded) {
+                v.push(Unit {
+                    name,
+                    description,
+                    enabled_state,
+                    status: Status {
+                        load_state,
+                        runtime_state,
+                        last_run_state,
+                    },
+                    // required for all the management calls
+                    object_path: item.6.to_string(),
+                })
+            }
         }
 
         Ok(v)
